@@ -61,7 +61,7 @@ client.on("interactionCreate", async interaction => {
             const statsMessage = `**🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
 - **Zwift Pace Group**: ${rider.zpCategory}
 - **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(1)})
-- **Phenotype**: ${rider.phenotype.value} (${rider.phenotype.scores.puncheur}% Puncheur)
+- **Phenotype**: ${rider.phenotype.value}
 - **FTP**: ${rider.zpFTP} W
 - **CP**: ${rider.power.CP} W
 - **Compound Score**: ${rider.power.compoundScore}
@@ -75,6 +75,9 @@ client.on("interactionCreate", async interaction => {
   - **1min:** ${rider.power.w60} W (${rider.power.wkg60} W/kg)
   - **5min:** ${rider.power.w300} W (${rider.power.wkg300} W/kg)
   - **20min:** ${rider.power.w1200} W (${rider.power.wkg1200} W/kg)
+
+ZwiftPower: [Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId})
+ZwiftRacing: [Profile](https://www.zwiftracing.app/riders/${rider.riderId})
 `;
 
             await interaction.reply(statsMessage);

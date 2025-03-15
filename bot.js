@@ -58,7 +58,8 @@ client.on("interactionCreate", async interaction => {
             }
 
             // Format the response
-            const statsMessage = `**🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
+            const statsMessage = `
+**🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
 - **Zwift Pace Group**: ${rider.zpCategory}
 - **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(1)})
 - **Phenotype**: ${rider.phenotype.value}
@@ -67,7 +68,9 @@ client.on("interactionCreate", async interaction => {
 - **Compound Score**: ${rider.power.compoundScore}
 - **Height**: ${rider.height} cm
 - **Weight**: ${rider.weight} kg
-90 day stats:
+
+__**90 Day Stats:**__
+
 - **Total Races**: ${rider.race.finishes}
 - **Wins**: 🥇 ${rider.race.wins} | **Podiums**: 🏅 ${rider.race.podiums}
 - **Power Ratings**:
@@ -75,6 +78,8 @@ client.on("interactionCreate", async interaction => {
   - **1min:** ${rider.power.w60} W (${rider.power.wkg60} W/kg)
   - **5min:** ${rider.power.w300} W (${rider.power.wkg300} W/kg)
   - **20min:** ${rider.power.w1200} W (${rider.power.wkg1200} W/kg)
+
+__**Extrenal Links:**__
 
 ZwiftPower: [Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId})
 ZwiftRacing: [Profile](https://www.zwiftracing.app/riders/${rider.riderId})

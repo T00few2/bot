@@ -63,7 +63,7 @@ client.on("interactionCreate", async interaction => {
 - **Zwift Pace Group**: ${rider.zpCategory}
 - **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})
 - **Phenotype**: ${rider.phenotype.value}
-- **FTP**: ${rider.zpFTP} W
+- **FTP**: ${rider.zpFTP} W (${(rider.zpFTP/rider.weight).toFixed(2)} W/kg)
 - **CP**: ${rider.power.CP.toFixed(0)} W
 - **Compound Score**: ${rider.power.compoundScore.toFixed(0)}
 - **Height**: ${rider.height} cm

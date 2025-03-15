@@ -1,3 +1,15 @@
+const express = require("express");
+const app = express();
+
+// Fake Web Server to Keep Render Free Tier
+app.get("/", (req, res) => {
+    res.send("Bot is running!");
+});
+
+app.listen(3000, () => {
+    console.log("Fake web server running on port 3000");
+});
+
 const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('discord.js');
 require('dotenv').config();
 

@@ -61,11 +61,11 @@ client.on("interactionCreate", async interaction => {
             const statsMessage = `
 **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
 - **Zwift Pace Group**: ${rider.zpCategory}
-- **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(1)})
+- **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})
 - **Phenotype**: ${rider.phenotype.value}
 - **FTP**: ${rider.zpFTP} W
-- **CP**: ${rider.power.CP} W
-- **Compound Score**: ${rider.power.compoundScore}
+- **CP**: ${rider.power.CP.toFixed(0)} W
+- **Compound Score**: ${rider.power.compoundScore.toFixed(0)}
 - **Height**: ${rider.height} cm
 - **Weight**: ${rider.weight} kg
 
@@ -74,10 +74,10 @@ __**90 Day Stats:**__
 - **Total Races**: ${rider.race.finishes}
 - **🥇 Wins**: ${rider.race.wins} | **🏅 Podiums**: ${rider.race.podiums}
 - **Power Ratings**:
-  - **5s:** ${rider.power.w5} W (${rider.power.wkg5} W/kg)
-  - **1min:** ${rider.power.w60} W (${rider.power.wkg60} W/kg)
-  - **5min:** ${rider.power.w300} W (${rider.power.wkg300} W/kg)
-  - **20min:** ${rider.power.w1200} W (${rider.power.wkg1200} W/kg)
+  - **5s:** ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)
+  - **1min:** ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)
+  - **5min:** ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)
+  - **20min:** ${rider.power.w1200} W (${rider.power.wkg1200.toFixed(2)} W/kg)
 
 __**Extrenal Links:**__
 

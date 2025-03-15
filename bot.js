@@ -59,18 +59,23 @@ client.on("interactionCreate", async interaction => {
 
             // Format the response
             const statsMessage = `**🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
-- **Category**: ${rider.zpCategory}
+- **Zwift Pace Group**: ${rider.zpCategory}
+- **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(1)})
+- **Phenotype**: ${rider.phenotype.value} (${rider.phenotype.scores.puncheur}% Puncheur)
 - **FTP**: ${rider.zpFTP} W
-- **Weight**: ${rider.weight} kg
+- **CP**: ${rider.power.CP} W
+- **Compound Score**: ${rider.power.compoundScore}
 - **Height**: ${rider.height} cm
+- **Weight**: ${rider.weight} kg
+90 day stats:
+- **Total Races**: ${rider.race.finishes}
+- **Wins**: 🥇 ${rider.race.wins} | **Podiums**: 🏅 ${rider.race.podiums}
 - **Power Ratings**:
   - **5s:** ${rider.power.w5} W (${rider.power.wkg5} W/kg)
   - **1min:** ${rider.power.w60} W (${rider.power.wkg60} W/kg)
   - **5min:** ${rider.power.w300} W (${rider.power.wkg300} W/kg)
-- **Race Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(1)})
-- **Total Races**: ${rider.race.finishes}
-- **Wins**: 🥇 ${rider.race.wins} | **Podiums**: 🏆 ${rider.race.podiums}
-- **Phenotype**: ${rider.phenotype.value} (${rider.phenotype.scores.puncheur}% Puncheur)`;
+  - **20min:** ${rider.power.w1200} W (${rider.power.wkg1200} W/kg)
+`;
 
             await interaction.reply(statsMessage);
         } catch (error) {

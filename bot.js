@@ -8,6 +8,16 @@ const app = express();
 app.get("/", (req, res) => res.send("Bot is running!"));
 app.listen(3000, () => console.log("Fake web server running on port 3000"));
 
+setInterval(async () => {
+    try {
+        await axios.get("https://bot-tdnm.onrender.com"); 
+        console.log("✅ Keep-alive ping sent to prevent sleeping.");
+    } catch (error) {
+        console.error("❌ Keep-alive ping failed:", error);
+    }
+}, 10 * 60 * 1000); // Ping every 10 minutes
+
+
 // Create bot client
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

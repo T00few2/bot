@@ -72,7 +72,7 @@ client.on("interactionCreate", async interaction => {
 __**90 Day Stats:**__
 
 - **Total Races**: ${rider.race.finishes}
-- **Wins**: 🥇 ${rider.race.wins} | **Podiums**: 🏅 ${rider.race.podiums}
+- **🥇 Wins**: ${rider.race.wins} | **🏅 Podiums**: ${rider.race.podiums}
 - **Power Ratings**:
   - **5s:** ${rider.power.w5} W (${rider.power.wkg5} W/kg)
   - **1min:** ${rider.power.w60} W (${rider.power.wkg60} W/kg)

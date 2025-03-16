@@ -145,22 +145,33 @@ client.on("interactionCreate", async interaction => {
                     return;
                 }
         
-                // Format Rider Stats
-                const statsMessage = `
-                **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
-                - **Zwift Category**: ${rider.zpCategory}
-                - **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})
-                - **FTP**: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)
-                - **CP**: ${rider.power.CP.toFixed(0)} W
-                - **Total Races**: ${rider.race.finishes}
-                **🥇 Wins**: ${rider.race.wins} | **🏅 Podiums**: ${rider.race.podiums}
-                - **Power Ratings**:
-                  - **5s:** ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)
-                  - **1m:** ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)
-                  - **5m:** ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)
-        
-                [ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
+                 // Format Rider Stats
+                 const statsMessage = `
+                **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**
+
+                \`\`\`
+                ╔════════════════════╤══════════════════════╗
+                ║ Attribute         │ Value                ║
+                ╟────────────────────┼──────────────────────╢
+                ║ Zwift Pace Group   │ ${rider.zpCategory}  ║
+                ║ vELO Category    │ ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)}) ║
+                ║ FTP              │ ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg) ║
+                ║ CP               │ ${rider.power.CP.toFixed(0)} W  ║
+                ║ Total Races      │ ${rider.race.finishes}   ║
+                ║ Wins            │ ${rider.race.wins}   ║
+                ║ Podiums         │ ${rider.race.podiums}   ║
+                ╠════════════════════╪══════════════════════╣
+                ║ Power Ratings    │                        ║
+                ╟────────────────────┼──────────────────────╢
+                ║ 5s Power        │ ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg) ║
+                ║ 1m Power        │ ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg) ║
+                ║ 5m Power        │ ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg) ║
+                ╚════════════════════╧══════════════════════╝
+                \`\`\`
+
+                🔗 [ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
                 `;
+
         
                 await interaction.editReply(statsMessage);
             } catch (error) {

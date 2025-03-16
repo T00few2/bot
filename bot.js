@@ -105,17 +105,41 @@ client.on("interactionCreate", async interaction => {
         } 
         
         else if (interaction.commandName === "rider_stats") {
-            const zwiftID = interaction.options.getString("zwiftid");
-
+            const zwiftIDOption = interaction.options.getString("zwiftid");
+            const discordUser = interaction.options.getUser("discorduser");
+        
+            let zwiftID = zwiftIDOption;
+        
             try {
+                // If a Discord user is mentioned, fetch the linked Zwift ID from Firestore
+                if (!zwiftID && discordUser) {
+                    console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
+        
+                    const doc = await db.collection("discord_users").doc(discordUser.id).get();
+        
+                    if (!doc.exists) {
+                        await interaction.editReply(`❌ **${discordUser.username} has not linked their ZwiftID!**`);
+                        return;
+                    }
+        
+                    zwiftID = doc.data().zwiftID;
+                }
+        
+                // If no Zwift ID is found, return an error
+                if (!zwiftID) {
+                    await interaction.editReply(`❌ **You must provide a ZwiftID or mention a Discord user who has linked one.**`);
+                    return;
+                }
+        
+                // Fetch Rider Stats from API
                 const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
                 const rider = response.data;
-
+        
                 if (!rider || !rider.name) {
                     await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
                     return;
                 }
-
+        
                 // Format Rider Stats
                 const statsMessage = `
                 **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
@@ -129,10 +153,10 @@ client.on("interactionCreate", async interaction => {
                   - **5s:** ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)
                   - **1m:** ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)
                   - **5m:** ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)
-
+        
                 [ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
                 `;
-
+        
                 await interaction.editReply(statsMessage);
             } catch (error) {
                 console.error("❌ API Fetch Error:", error);

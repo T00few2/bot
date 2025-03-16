@@ -145,24 +145,23 @@ client.on("interactionCreate", async interaction => {
                     .addFields(
                         { name: "**FTP**", value: `${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`, inline: true },
                         { name: "**CP**", value: `${rider.power.CP.toFixed(0)} W`, inline: true },
+                        { name: "\u200B", value: "\u200B", inline: true },
                     )
                     .addFields(
                         { name: "**Total Races**", value: `${rider.race.finishes}`, inline: true },
                         { name: "**Wins**", value: `${rider.race.wins}`, inline: true },
                         { name: "**Podiums**", value: `${rider.race.podiums}`, inline: true }
                     )
-                    .addFields({ name: "📊 **Power Ratings**", value: "" })
+                    .addFields({ name: "📊 **Power Ratings**", value: "\u200B" }) // Power Ratings Divider
                     .addFields(
-                        { name: "5s Power", value: `${rider.power.w5} W`, inline: true },
-                        { name: "1m Power", value: `${rider.power.w60} W`, inline: true },
-                        { name: "5m Power", value: `${rider.power.w300} W`, inline: true },
-                        { name: "20m Power", value: `${rider.power.w1200} W`, inline: true }
+                        { name: "⚡ 30s Power", value: `${rider.power.w30} W`, inline: true },
+                        { name: "⚡ 5m Power", value: `${rider.power.w300} W`, inline: true },
+                        { name: "⚡ 20m Power", value: `${rider.power.w1200} W`, inline: true }
                     )
                     .addFields(
-                        { name: "5s Power", value: `${rider.power.wkg5.toFixed(2)} W/kg`, inline: true },
-                        { name: "1m Power", value: `${rider.power.wkg60.toFixed(2)} W/kg`, inline: true },
-                        { name: "5m Power", value: `${rider.power.wkg300.toFixed(2)} W/kg`, inline: true },
-                        { name: "20m Power", value: `${rider.power.wkg1200.toFixed(2)} W/kg`, inline: true }
+                        { name: "⚡ 30s W/kg", value: `${rider.power.wkg30.toFixed(2)} W/kg`, inline: true },
+                        { name: "⚡ 5m W/kg", value: `${rider.power.wkg300.toFixed(2)} W/kg`, inline: true },
+                        { name: "⚡ 20m W/kg", value: `${rider.power.wkg1200.toFixed(2)} W/kg`, inline: true }
                     )
                     .setFooter({ text: "Data provided by ZwiftRacing.app" })
                     .setTimestamp();

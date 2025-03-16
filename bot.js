@@ -395,75 +395,79 @@ client.on("interactionCreate", async interaction => {
 
     // /team_stats
     else if (interaction.commandName === "team_stats") {
-      // 1) Collect up to 8 user mentions
-      const userMentions = [];
-      for (let i = 1; i <= 8; i++) {
-        const userOpt = interaction.options.getUser(`rider${i}`);
-        if (userOpt) userMentions.push(userOpt);
-      }
-
-      if (userMentions.length === 0) {
-        await interaction.editReply("❌ You must mention at least one Discord user.");
-        return;
-      }
-
-      try {
-        const discordToZwiftMap = {};
-        for (const userObj of userMentions) {
-          const doc = await db.collection("discord_users").doc(userObj.id).get();
-          if (!doc.exists) {
-            await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
-            return;
-          }
-          discordToZwiftMap[userObj.id] = doc.data().zwiftID;
+        // 1) Collect up to 8 user mentions
+        const userMentions = [];
+        for (let i = 1; i <= 8; i++) {
+          const userOpt = interaction.options.getUser(`rider${i}`);
+          if (userOpt) userMentions.push(userOpt);
         }
-
-        // 2) Get today's club_stats doc
-        const dateId = new Date().toISOString().split('T')[0];
-        const clubDoc = await db.collection("club_stats").doc(dateId).get();
-        if (!clubDoc.exists) {
-          await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
+      
+        if (userMentions.length === 0) {
+          await interaction.editReply("❌ You must mention at least one Discord user.");
           return;
         }
-
-        const clubData = clubDoc.data();
-        if (!clubData?.data?.riders) {
-          await interaction.editReply("❌ This club_stats document has no riders array!");
-          return;
-        }
-
-        const allRiders = clubData.data.riders;
-
-        // 3) For each Zwift ID, find matching rider in allRiders
-        const ridersFound = [];
-        for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
-          const found = allRiders.find(r => r.riderId === parseInt(zID));
-          if (!found) {
-            await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
+      
+        try {
+          const discordToZwiftMap = {};
+          for (const userObj of userMentions) {
+            const doc = await db.collection("discord_users").doc(userObj.id).get();
+            if (!doc.exists) {
+              await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
+              return;
+            }
+            discordToZwiftMap[userObj.id] = doc.data().zwiftID;
+          }
+      
+          // 2) Get today's club_stats doc
+          const dateId = new Date().toISOString().split('T')[0];
+          const clubDoc = await db.collection("club_stats").doc(dateId).get();
+          if (!clubDoc.exists) {
+            await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
             return;
           }
-          ridersFound.push(found);
+      
+          const clubData = clubDoc.data();
+          if (!clubData?.data?.riders) {
+            await interaction.editReply("❌ This club_stats document has no riders array!");
+            return;
+          }
+      
+          const allRiders = clubData.data.riders;
+      
+          // 3) For each Zwift ID, find matching rider in allRiders
+          const ridersFound = [];
+          for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
+            const found = allRiders.find(r => r.riderId === parseInt(zID));
+            if (!found) {
+              await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
+              return;
+            }
+            ridersFound.push(found);
+          }
+      
+          // 4) Generate comparative table and send
+          const imageBuffer = await generateTeamStatsImage(ridersFound);
+          const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+      
+          // Send the image first
+          await interaction.editReply({
+            content: "",
+            files: [attachment],
+          });
+      
+          // 5) Send a follow-up message with ZwiftPower links (image will be shown already)
+          const zPLinks = ridersFound
+            .map(r => `[${r.name}](https://www.zwiftpower.com/profile.php?z=${r.riderId})`)
+            .join(" | ");
+            
+          await interaction.followUp(`ZwiftPower Profiles: ${zPLinks}`);
+      
+        } catch (error) {
+          console.error("❌ team_stats Error:", error);
+          await interaction.editReply("⚠️ Error generating team stats comparison.");
         }
-
-        // 4) Generate comparative table and send
-        const imageBuffer = await generateTeamStatsImage(ridersFound);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
-
-        // 5) Build ZwiftPower links for each rider
-        const zPLinks = ridersFound
-          .map(r => `[${r.name}](https://www.zwiftpower.com/profile.php?z=${r.riderId})`)
-          .join(" | ");
-
-        await interaction.editReply({
-          content: `Here is the team comparison:\n${zPLinks}`,
-          files: [attachment]
-        });
-
-      } catch (error) {
-        console.error("❌ team_stats Error:", error);
-        await interaction.editReply("⚠️ Error generating team stats comparison.");
       }
-    }
+      
 
   } catch (error) {
     console.error("❌ Unexpected Error:", error);

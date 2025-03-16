@@ -134,25 +134,31 @@ client.on("interactionCreate", async interaction => {
                 // 🎨 Create an embed for better formatting
                 const embed = new EmbedBuilder()
                     .setColor("#0099ff")
-                    .setTitle(`🏆 Rider Stats for ${rider.name}`)
+                    .setTitle(`🏆 Rider Stats for ${rider.name}, ${rider.club.name}`)
                     .setURL(`https://www.zwiftpower.com/profile.php?z=${rider.riderId}`)
                     .setThumbnail("https://upload.wikimedia.org/wikipedia/commons/c/cd/Zwift_logo.png") // Zwift logo
                     .addFields(
-                        { name: "**Zwift Category**", value: `${rider.zpCategory}`, inline: true },
+                        { name: "**Zwift Pace Group**", value: `${rider.zpCategory}`, inline: true },
                         { name: "**vELO Category**", value: `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`, inline: true },
+                        { name: "**Phenotype**", value: `${rider.phenotype.value}`, inline: true }
+                    )
+                    .addFields(
                         { name: "**FTP**", value: `${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`, inline: true },
                         { name: "**CP**", value: `${rider.power.CP.toFixed(0)} W`, inline: true },
+                    )
+                    .addFields(
                         { name: "**Total Races**", value: `${rider.race.finishes}`, inline: true },
                         { name: "**Wins**", value: `${rider.race.wins}`, inline: true },
                         { name: "**Podiums**", value: `${rider.race.podiums}`, inline: true }
                     )
-                    .addFields({ name: "📊 **Power Ratings**", value: "------------------------" })
+                    .addFields({ name: "📊 **Power Ratings**", value: "" })
                     .addFields(
                         { name: "5s Power", value: `${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`, inline: true },
                         { name: "1m Power", value: `${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`, inline: true },
-                        { name: "5m Power", value: `${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`, inline: true }
+                        { name: "5m Power", value: `${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`, inline: true },
+                        { name: "20m Power", value: `${rider.power.w1200} W (${rider.power.wkg1200.toFixed(2)} W/kg)`, inline: true }
                     )
-                    .setFooter({ text: "Data provided by ZwiftPower & ZwiftRacing.app" })
+                    .setFooter({ text: "Data provided by ZwiftRacing.app" })
                     .setTimestamp();
 
                 await interaction.editReply({ embeds: [embed] });

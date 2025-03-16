@@ -47,7 +47,7 @@ const db = admin.firestore();
 // 🤖 Discord Bot
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// 1️⃣ Build the Slash Commands
+// 1️⃣ Define Slash Commands
 const commands = [
   new SlashCommandBuilder()
     .setName("rider_stats")
@@ -76,7 +76,6 @@ const commands = [
     .setName("whoami")
     .setDescription("Retrieve your linked ZwiftID"),
 
-  // 2️⃣ TEAM_STATS Command with up to 8 riders
   new SlashCommandBuilder()
     .setName("team_stats")
     .setDescription("Compare multiple riders' stats from today's club_stats data")
@@ -85,7 +84,6 @@ const commands = [
         .setDescription("First Discord user to compare")
         .setRequired(true)
     )
-    // The rest 7 are optional
     .addUserOption(option =>
       option.setName("rider2")
         .setDescription("Second Discord user")
@@ -123,7 +121,7 @@ const commands = [
     )
 ].map(command => command.toJSON());
 
-// 3️⃣ Register Slash Commands
+// 2️⃣ Register Slash Commands
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
@@ -138,94 +136,160 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
   }
 })();
 
-// 4️⃣ Generate Single-Rider Stats Image
-async function generateRiderStatsImage(rider) {
-  const width = 750;
-  const height = 400;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
+// 3️⃣ Single-Rider Stats: Same Layout But 1 Column
+async function generateSingleRiderStatsImage(rider) {
+  /**
+   * We have 13 rows:
+   * 1) Name
+   * 2) Pace Group
+   * 3) vELO Category
+   * 4) Phenotype
+   * 5) FTP
+   * 6) 30s
+   * 7) 1m
+   * 8) 5m
+   * 9) 20m
+   * 10) Finishes
+   * 11) Wins
+   * 12) Podiums
+   * 13) DNFs
+   */
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "#000000";
-  ctx.font = "bold 24px Arial";
-  ctx.fillText(`Rider Stats for ${rider.name}`, 50, 50);
-
-  ctx.font = "16px Arial";
-  let startY = 100;
-
-  ctx.fillText(`Zwift Category: ${rider.zpCategory}`, 50, startY);
-  startY += 30;
-
-  ctx.fillText(
-    `vELO Category: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`,
-    50, startY
-  );
-  startY += 30;
-
-  ctx.fillText(
-    `FTP: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`,
-    50, startY
-  );
-  startY += 30;
-
-  ctx.fillText(
-    `CP: ${rider.power.CP.toFixed(0)} W`,
-    50, startY
-  );
-  startY += 30;
-
-  ctx.fillText(
-    `Phenotype: ${rider.phenotype.value}`,
-    50, startY
-  );
-  startY += 30;
-
-  // Power Ratings block
-  ctx.font = "bold 18px Arial";
-  ctx.fillText("Power Ratings", 400, 100);
-
-  ctx.font = "16px Arial";
-  ctx.fillText(
-    `5s: ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`,
-    400, 130
-  );
-  ctx.fillText(
-    `1m: ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`,
-    400, 160
-  );
-  ctx.fillText(
-    `5m: ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`,
-    400, 190
-  );
-
-  return canvas.toBuffer();
-}
-
-// 5️⃣ Generate Multi-Rider Stats Image (team_stats)
-async function generateTeamStatsImage(ridersArray) {
-  // We'll have 9 rows of data for each rider:
-  // 1) Name
-  // 2) Pace Group
-  // 3) vELO Category
-  // 4) Phenotype
-  // 5) FTP
-  // 6) 30s
-  // 7) 1m
-  // 8) 5m
-  // 9) 20m
-
-  const numCols = ridersArray.length;
-  const colWidth = 220; // make columns a bit wider for multiline text
-  const rowCount = 9; 
+  const rowCount = 13;
   const rowHeight = 30;
   const topMargin = 80;
   const leftMargin = 20;
 
-  // total height = margin + (rowCount * rowHeight) + some buffer
+  const height = topMargin + (rowCount * rowHeight) + 80; // extra buffer
+  const width = 600;
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  // White BG
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  // Title
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 24px Arial";
+  ctx.fillText("Single Rider Stats", 40, 40);
+
+  // Row labels
+  ctx.font = "bold 16px Arial";
+  const labels = [
+    "Name",
+    "Pace Group",
+    "vELO Category",
+    "Phenotype",
+    "FTP",
+    "30s",
+    "1m",
+    "5m",
+    "20m",
+    "Finishes",
+    "Wins",
+    "Podiums",
+    "DNFs"
+  ];
+
+  labels.forEach((label, i) => {
+    ctx.fillText(label, leftMargin, topMargin + (i * rowHeight));
+  });
+
+  // Values
+  let yOffset = topMargin;
+  const xOffset = leftMargin + 150;
+
+  ctx.font = "16px Arial";
+
+  // 1) Name
+  ctx.fillText(rider.name, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 2) Pace Group
+  ctx.fillText(rider.zpCategory, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 3) vELO Category
+  const veloCat = `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`;
+  ctx.fillText(veloCat, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 4) Phenotype
+  ctx.fillText(rider.phenotype.value, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 5) FTP => e.g. 281 W (3.56 W/kg)
+  const ftpString = `${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`;
+  ctx.fillText(ftpString, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 6) 30s
+  const w30String = `${rider.power.w30} W (${rider.power.wkg30.toFixed(2)} W/kg)`;
+  ctx.fillText(w30String, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 7) 1m
+  const w60String = `${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`;
+  ctx.fillText(w60String, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 8) 5m
+  const w300String = `${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`;
+  ctx.fillText(w300String, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 9) 20m
+  const w1200String = `${rider.power.w1200} W (${rider.power.wkg1200.toFixed(2)} W/kg)`;
+  ctx.fillText(w1200String, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 10) Finishes
+  ctx.fillText(`${rider.race.finishes}`, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 11) Wins
+  ctx.fillText(`${rider.race.wins}`, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 12) Podiums
+  ctx.fillText(`${rider.race.podiums}`, xOffset, yOffset);
+  yOffset += rowHeight;
+
+  // 13) DNFs
+  ctx.fillText(`${rider.race.dnfs}`, xOffset, yOffset);
+
+  return canvas.toBuffer();
+}
+
+// 4️⃣ Generate Multi-Rider Stats Image (team_stats) with 13 Rows
+async function generateTeamStatsImage(ridersArray) {
+  /**
+   * 13 rows total:
+   *  1) Name
+   *  2) Pace Group
+   *  3) vELO Category
+   *  4) Phenotype
+   *  5) FTP
+   *  6) 30s
+   *  7) 1m
+   *  8) 5m
+   *  9) 20m
+   * 10) Finishes
+   * 11) Wins
+   * 12) Podiums
+   * 13) DNFs
+   */
+
+  const numCols = ridersArray.length;
+  const colWidth = 220; 
+  const rowCount = 13;
+  const rowHeight = 30;
+  const topMargin = 80;
+  const leftMargin = 20;
+
   const height = topMargin + (rowCount * rowHeight) + 80;
-  // width = margin + colWidth * number of riders
   const width = leftMargin + colWidth * numCols + 100;
 
   const canvas = createCanvas(width, height);
@@ -251,7 +315,11 @@ async function generateTeamStatsImage(ridersArray) {
     "30s",
     "1m",
     "5m",
-    "20m"
+    "20m",
+    "Finishes",
+    "Wins",
+    "Podiums",
+    "DNFs"
   ];
 
   labels.forEach((label, i) => {
@@ -269,11 +337,11 @@ async function generateTeamStatsImage(ridersArray) {
     ctx.fillText(rider.name, xOffset, yOffset);
     yOffset += rowHeight;
 
-    // 2) Pace Group (zpCategory)
+    // 2) Pace Group
     ctx.fillText(rider.zpCategory, xOffset, yOffset);
     yOffset += rowHeight;
 
-    // 3) vELO Category ( e.g. B (1573) )
+    // 3) vELO Category
     const veloCat = `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`;
     ctx.fillText(veloCat, xOffset, yOffset);
     yOffset += rowHeight;
@@ -305,6 +373,22 @@ async function generateTeamStatsImage(ridersArray) {
     // 9) 20m
     const w1200String = `${rider.power.w1200} W (${rider.power.wkg1200.toFixed(2)} W/kg)`;
     ctx.fillText(w1200String, xOffset, yOffset);
+    yOffset += rowHeight;
+
+    // 10) Finishes
+    ctx.fillText(`${rider.race.finishes}`, xOffset, yOffset);
+    yOffset += rowHeight;
+
+    // 11) Wins
+    ctx.fillText(`${rider.race.wins}`, xOffset, yOffset);
+    yOffset += rowHeight;
+
+    // 12) Podiums
+    ctx.fillText(`${rider.race.podiums}`, xOffset, yOffset);
+    yOffset += rowHeight;
+
+    // 13) DNFs
+    ctx.fillText(`${rider.race.dnfs}`, xOffset, yOffset);
   });
 
   return canvas.toBuffer();
@@ -354,13 +438,14 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
-    // /rider_stats
+    // /rider_stats  (Single-rider with new 13-row layout)
     else if (interaction.commandName === "rider_stats") {
       try {
         const zwiftIDOption = interaction.options.getString("zwiftid");
         const discordUser = interaction.options.getUser("discorduser");
         let zwiftID = zwiftIDOption;
 
+        // If no direct Zwift ID, but user mention
         if (!zwiftID && discordUser) {
           console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
           const doc = await db.collection("discord_users").doc(discordUser.id).get();
@@ -376,6 +461,7 @@ client.on("interactionCreate", async interaction => {
           return;
         }
 
+        // Fetch from external API
         const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
         const rider = response.data;
         if (!rider || !rider.name) {
@@ -383,9 +469,14 @@ client.on("interactionCreate", async interaction => {
           return;
         }
 
-        const imageBuffer = await generateRiderStatsImage(rider);
+        // Generate single-rider image (13 rows)
+        const imageBuffer = await generateSingleRiderStatsImage(rider);
         const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
-        await interaction.editReply({ content: "Here are the rider stats:", files: [attachment] });
+
+        await interaction.editReply({
+          content: "Here are the rider stats:",
+          files: [attachment],
+        });
 
       } catch (error) {
         console.error("❌ rider_stats Error:", error);
@@ -393,78 +484,78 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
-    // /team_stats
+    // /team_stats (multi-rider with 13-row layout)
     else if (interaction.commandName === "team_stats") {
-        // 1) Collect up to 8 user mentions
-        const userMentions = [];
-        for (let i = 1; i <= 8; i++) {
-          const userOpt = interaction.options.getUser(`rider${i}`);
-          if (userOpt) userMentions.push(userOpt);
+      // 1) Collect up to 8 user mentions
+      const userMentions = [];
+      for (let i = 1; i <= 8; i++) {
+        const userOpt = interaction.options.getUser(`rider${i}`);
+        if (userOpt) userMentions.push(userOpt);
+      }
+
+      if (userMentions.length === 0) {
+        await interaction.editReply("❌ You must mention at least one Discord user.");
+        return;
+      }
+
+      try {
+        const discordToZwiftMap = {};
+        for (const userObj of userMentions) {
+          const doc = await db.collection("discord_users").doc(userObj.id).get();
+          if (!doc.exists) {
+            await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
+            return;
+          }
+          discordToZwiftMap[userObj.id] = doc.data().zwiftID;
         }
-      
-        if (userMentions.length === 0) {
-          await interaction.editReply("❌ You must mention at least one Discord user.");
+
+        // 2) Get today's club_stats doc
+        const dateId = new Date().toISOString().split('T')[0];
+        const clubDoc = await db.collection("club_stats").doc(dateId).get();
+        if (!clubDoc.exists) {
+          await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
           return;
         }
-      
-        try {
-          const discordToZwiftMap = {};
-          for (const userObj of userMentions) {
-            const doc = await db.collection("discord_users").doc(userObj.id).get();
-            if (!doc.exists) {
-              await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
-              return;
-            }
-            discordToZwiftMap[userObj.id] = doc.data().zwiftID;
-          }
-      
-          // 2) Get today's club_stats doc
-          const dateId = new Date().toISOString().split('T')[0];
-          const clubDoc = await db.collection("club_stats").doc(dateId).get();
-          if (!clubDoc.exists) {
-            await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
-            return;
-          }
-      
-          const clubData = clubDoc.data();
-          if (!clubData?.data?.riders) {
-            await interaction.editReply("❌ This club_stats document has no riders array!");
-            return;
-          }
-      
-          const allRiders = clubData.data.riders;
-      
-          // 3) For each Zwift ID, find matching rider in allRiders
-          const ridersFound = [];
-          for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
-            const found = allRiders.find(r => r.riderId === parseInt(zID));
-            if (!found) {
-              await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
-              return;
-            }
-            ridersFound.push(found);
-          }
-      
-          // 4) Build ZwiftPower links for each rider
-          const zPLinks = ridersFound
-            .map(r => `[${r.name}](<https://www.zwiftpower.com/profile.php?z=${r.riderId}>)`)
-            .join(" | ");
-      
-          // 5) Generate comparative table
-          const imageBuffer = await generateTeamStatsImage(ridersFound);
-          const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
-      
-          // 6) Reply with links and the image in a single message
-          await interaction.editReply({
-            content: `ZwiftPower Profiles: ${zPLinks}\n\n`,
-            files: [attachment]
-          });
-      
-        } catch (error) {
-          console.error("❌ team_stats Error:", error);
-          await interaction.editReply("⚠️ Error generating team stats comparison.");
+
+        const clubData = clubDoc.data();
+        if (!clubData?.data?.riders) {
+          await interaction.editReply("❌ This club_stats document has no riders array!");
+          return;
         }
+
+        const allRiders = clubData.data.riders;
+
+        // 3) For each Zwift ID, find matching rider
+        const ridersFound = [];
+        for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
+          const found = allRiders.find(r => r.riderId === parseInt(zID));
+          if (!found) {
+            await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
+            return;
+          }
+          ridersFound.push(found);
+        }
+
+        // 4) Build ZwiftPower links
+        const zPLinks = ridersFound
+          .map(r => `[${r.name}](<https://www.zwiftpower.com/profile.php?z=${r.riderId}>)`)
+          .join(" | ");
+
+        // 5) Generate multi-rider image
+        const imageBuffer = await generateTeamStatsImage(ridersFound);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+
+        // 6) Single message: links + image
+        await interaction.editReply({
+          content: `ZwiftPower Profiles: ${zPLinks}\n\n`,
+          files: [attachment]
+        });
+
+      } catch (error) {
+        console.error("❌ team_stats Error:", error);
+        await interaction.editReply("⚠️ Error generating team stats comparison.");
       }
+    }
 
   } catch (error) {
     console.error("❌ Unexpected Error:", error);

@@ -1,6 +1,6 @@
 const express = require("express");
 const axios = require("axios");
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require("discord.js");
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder } = require("discord.js");
 require("dotenv").config();
 const admin = require("firebase-admin");
 
@@ -20,33 +20,19 @@ setInterval(async () => {
 }, 10 * 60 * 1000); // Ping every 10 minutes
 
 // 🚀 Load Firebase Config from Environment Variables
-const firebaseConfig = {
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Fix newline issue
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL}`
-};
-
-// ✅ Initialize Firebase
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
 if (!privateKey) {
-  throw new Error("FIREBASE_PRIVATE_KEY is not set in environment variables.");
+    throw new Error("FIREBASE_PRIVATE_KEY is not set in environment variables.");
 }
 
 admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: privateKey.replace(/\\n/g, '\n'), // Convert escaped newlines
-  }),
-  databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
+    credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
+    }),
+    databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
 });
 
 const db = admin.firestore();
@@ -144,90 +130,45 @@ client.on("interactionCreate", async interaction => {
                     await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
                     return;
                 }
-        
-                 // Format Rider Stats
-                 const statsMessage = `
-                **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**
 
-                \`\`\`
-                ╔════════════════════╤══════════════════════╗
-                ║ Attribute         │ Value                ║
-                ╟────────────────────┼──────────────────────╢
-                ║ Zwift Pace Group   │ ${rider.zpCategory}  ║
-                ║ vELO Category    │ ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)}) ║
-                ║ FTP              │ ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg) ║
-                ║ CP               │ ${rider.power.CP.toFixed(0)} W  ║
-                ║ Total Races      │ ${rider.race.finishes}   ║
-                ║ Wins            │ ${rider.race.wins}   ║
-                ║ Podiums         │ ${rider.race.podiums}   ║
-                ╠════════════════════╪══════════════════════╣
-                ║ Power Ratings    │                        ║
-                ╟────────────────────┼──────────────────────╢
-                ║ 5s Power        │ ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg) ║
-                ║ 1m Power        │ ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg) ║
-                ║ 5m Power        │ ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg) ║
-                ╚════════════════════╧══════════════════════╝
-                \`\`\`
+                // 🎨 Create an embed for better formatting
+                const embed = new EmbedBuilder()
+                    .setColor("#0099ff")
+                    .setTitle(`🏆 Rider Stats for ${rider.name}`)
+                    .setURL(`https://www.zwiftpower.com/profile.php?z=${rider.riderId}`)
+                    .setThumbnail("https://upload.wikimedia.org/wikipedia/commons/c/cd/Zwift_logo.png") // Zwift logo
+                    .addFields(
+                        { name: "**Zwift Category**", value: `${rider.zpCategory}`, inline: true },
+                        { name: "**vELO Category**", value: `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`, inline: true },
+                        { name: "**FTP**", value: `${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`, inline: true },
+                        { name: "**CP**", value: `${rider.power.CP.toFixed(0)} W`, inline: true },
+                        { name: "**Total Races**", value: `${rider.race.finishes}`, inline: true },
+                        { name: "**Wins**", value: `${rider.race.wins}`, inline: true },
+                        { name: "**Podiums**", value: `${rider.race.podiums}`, inline: true }
+                    )
+                    .addFields({ name: "📊 **Power Ratings**", value: "------------------------" })
+                    .addFields(
+                        { name: "5s Power", value: `${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`, inline: true },
+                        { name: "1m Power", value: `${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`, inline: true },
+                        { name: "5m Power", value: `${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`, inline: true }
+                    )
+                    .setFooter({ text: "Data provided by ZwiftPower & ZwiftRacing.app" })
+                    .setTimestamp();
 
-                🔗 [ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
-                `;
+                await interaction.editReply({ embeds: [embed] });
 
-        
-                await interaction.editReply(statsMessage);
             } catch (error) {
                 console.error("❌ API Fetch Error:", error);
                 await interaction.editReply(`⚠️ Error fetching data for Zwift ID **${zwiftID}**.`);
             }
         }
-
-        else if (interaction.commandName === "my_zwiftid") {
-            const zwiftID = interaction.options.getString("zwiftid");
-            const discordID = interaction.user.id;
-            const username = interaction.user.username;
-
-            try {
-                await db.collection("discord_users").doc(discordID).set({
-                    discordID,
-                    username,
-                    zwiftID,
-                    linkedAt: admin.firestore.Timestamp.now(),
-                });
-
-                await interaction.editReply(`✅ **Your ZwiftID (${zwiftID}) is now linked to your Discord ID!**`);
-            } catch (error) {
-                console.error("❌ Firebase Error:", error);
-                await interaction.editReply(`⚠️ **Error saving your ZwiftID.**`);
-            }
-        }
-
-        else if (interaction.commandName === "whoami") {
-            const discordID = interaction.user.id;
-
-            try {
-                const doc = await db.collection("discord_users").doc(discordID).get();
-
-                if (!doc.exists) {
-                    await interaction.editReply(`❌ **You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID] to link.**`);
-                    return;
-                }
-
-                const data = doc.data();
-                await interaction.editReply(`✅ **Your linked ZwiftID: ${data.zwiftID}**`);
-            } catch (error) {
-                console.error("❌ Firebase Error:", error);
-                await interaction.editReply(`⚠️ **Error fetching your ZwiftID.**`);
-            }
-        }
     } catch (error) {
-        console.error("❌ Unexpected Error in Command Handling:", error);
-
-        // If interaction isn't already replied, send an error message
+        console.error("❌ Unexpected Error:", error);
         if (!interaction.replied) {
             await interaction.reply({ content: "⚠️ An unexpected error occurred!", ephemeral: true });
         }
     }
 });
-
 
 // ✅ Start Bot
 client.once("ready", () => {

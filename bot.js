@@ -445,29 +445,26 @@ client.on("interactionCreate", async interaction => {
             ridersFound.push(found);
           }
       
-          // 4) Generate comparative table and send
-          const imageBuffer = await generateTeamStatsImage(ridersFound);
-          const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
-      
-          // Send the image first
-          await interaction.editReply({
-            content: "",
-            files: [attachment],
-          });
-      
-          // 5) Send a follow-up message with ZwiftPower links (image will be shown already)
+          // 4) Build ZwiftPower links for each rider
           const zPLinks = ridersFound
             .map(r => `[${r.name}](https://www.zwiftpower.com/profile.php?z=${r.riderId})`)
             .join(" | ");
-            
-          await interaction.followUp(`ZwiftPower Profiles: ${zPLinks}`);
+      
+          // 5) Generate comparative table
+          const imageBuffer = await generateTeamStatsImage(ridersFound);
+          const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+      
+          // 6) Reply with links and the image in a single message
+          await interaction.editReply({
+            content: `ZwiftPower Profiles: ${zPLinks}\n\n`,
+            files: [attachment]
+          });
       
         } catch (error) {
           console.error("❌ team_stats Error:", error);
           await interaction.editReply("⚠️ Error generating team stats comparison.");
         }
       }
-      
 
   } catch (error) {
     console.error("❌ Unexpected Error:", error);

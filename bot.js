@@ -173,7 +173,7 @@ async function generateSingleRiderStatsImage(rider) {
   // Title
   ctx.fillStyle = "#000000";
   ctx.font = "bold 24px Arial";
-  ctx.fillText("Single Rider Stats", 40, 40);
+  ctx.fillText("Rider Stats", 40, 40);
 
   // Row labels
   ctx.font = "bold 16px Arial";
@@ -302,7 +302,7 @@ async function generateTeamStatsImage(ridersArray) {
   // Title
   ctx.fillStyle = "#000000";
   ctx.font = "bold 24px Arial";
-  ctx.fillText("Team Stats Comparison", 50, 40);
+  ctx.fillText("Team Stats", 50, 40);
 
   // Row Labels
   ctx.font = "bold 16px Arial";
@@ -440,49 +440,53 @@ client.on("interactionCreate", async interaction => {
 
     // /rider_stats  (Single-rider with new 13-row layout)
     else if (interaction.commandName === "rider_stats") {
-      try {
-        const zwiftIDOption = interaction.options.getString("zwiftid");
-        const discordUser = interaction.options.getUser("discorduser");
-        let zwiftID = zwiftIDOption;
-
-        // If no direct Zwift ID, but user mention
-        if (!zwiftID && discordUser) {
-          console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
-          const doc = await db.collection("discord_users").doc(discordUser.id).get();
-          if (!doc.exists) {
-            await interaction.editReply(`❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
+        try {
+          const zwiftIDOption = interaction.options.getString("zwiftid");
+          const discordUser = interaction.options.getUser("discorduser");
+          let zwiftID = zwiftIDOption;
+      
+          // If no direct Zwift ID, but user mention
+          if (!zwiftID && discordUser) {
+            console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
+            const doc = await db.collection("discord_users").doc(discordUser.id).get();
+            if (!doc.exists) {
+              await interaction.editReply(`❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
+              return;
+            }
+            zwiftID = doc.data().zwiftID;
+          }
+      
+          if (!zwiftID) {
+            await interaction.editReply("❌ You must provide a ZwiftID or mention a user who has linked one.");
             return;
           }
-          zwiftID = doc.data().zwiftID;
+      
+          // Fetch from external API
+          const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
+          const rider = response.data;
+          if (!rider || !rider.name) {
+            await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
+            return;
+          }
+      
+          // Generate single-rider image (13 rows)
+          const imageBuffer = await generateSingleRiderStatsImage(rider);
+          const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
+      
+          // Build ZwiftPower Link
+          const zwiftPowerLink = `[${rider.name}](<https://www.zwiftpower.com/profile.php?z=${rider.riderId}>)`;
+      
+          await interaction.editReply({
+            content: `ZwiftPower Profile: ${zwiftPowerLink}\n\n`,
+            files: [attachment],
+          });
+      
+        } catch (error) {
+          console.error("❌ rider_stats Error:", error);
+          await interaction.editReply("⚠️ Error fetching or generating rider stats.");
         }
-
-        if (!zwiftID) {
-          await interaction.editReply("❌ You must provide a ZwiftID or mention a user who has linked one.");
-          return;
-        }
-
-        // Fetch from external API
-        const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
-        const rider = response.data;
-        if (!rider || !rider.name) {
-          await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
-          return;
-        }
-
-        // Generate single-rider image (13 rows)
-        const imageBuffer = await generateSingleRiderStatsImage(rider);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
-
-        await interaction.editReply({
-          content: "Here are the rider stats:",
-          files: [attachment],
-        });
-
-      } catch (error) {
-        console.error("❌ rider_stats Error:", error);
-        await interaction.editReply("⚠️ Error fetching or generating rider stats.");
       }
-    }
+      
 
     // /team_stats (multi-rider with 13-row layout)
     else if (interaction.commandName === "team_stats") {

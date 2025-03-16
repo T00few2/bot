@@ -96,85 +96,98 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 client.on("interactionCreate", async interaction => {
     if (!interaction.isCommand()) return;
 
-    if (interaction.commandName === "hello") {
-        await interaction.reply(`Hello, ${interaction.user.username}!`);
-    } 
-    
-    else if (interaction.commandName === "rider_stats") {
-        const zwiftID = interaction.options.getString("zwiftid");
+    try {
+        // Defer reply immediately to prevent Discord timeout errors (must respond within 3s)
+        await interaction.deferReply();
 
-        try {
-            const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
-            const rider = response.data;
+        if (interaction.commandName === "hello") {
+            await interaction.editReply(`Hello, ${interaction.user.username}!`);
+        } 
+        
+        else if (interaction.commandName === "rider_stats") {
+            const zwiftID = interaction.options.getString("zwiftid");
 
-            if (!rider || !rider.name) {
-                await interaction.reply(`❌ No data found for Zwift ID **${zwiftID}**.`);
-                return;
+            try {
+                const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
+                const rider = response.data;
+
+                if (!rider || !rider.name) {
+                    await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
+                    return;
+                }
+
+                // Format Rider Stats
+                const statsMessage = `
+                **🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
+                - **Zwift Category**: ${rider.zpCategory}
+                - **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})
+                - **FTP**: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)
+                - **CP**: ${rider.power.CP.toFixed(0)} W
+                - **Total Races**: ${rider.race.finishes}
+                **🥇 Wins**: ${rider.race.wins} | **🏅 Podiums**: ${rider.race.podiums}
+                - **Power Ratings**:
+                  - **5s:** ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)
+                  - **1m:** ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)
+                  - **5m:** ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)
+
+                [ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
+                `;
+
+                await interaction.editReply(statsMessage);
+            } catch (error) {
+                console.error("❌ API Fetch Error:", error);
+                await interaction.editReply(`⚠️ Error fetching data for Zwift ID **${zwiftID}**.`);
             }
-
-            // Format Rider Stats
-            const statsMessage = `
-**🏆 Rider Stats for ${rider.name} (ZwiftID: ${rider.riderId})**\n
-- **Zwift Category**: ${rider.zpCategory}
-- **vELO Category**: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})
-- **FTP**: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)
-- **CP**: ${rider.power.CP.toFixed(0)} W
-- **Total Races**: ${rider.race.finishes}
-**🥇 Wins**: ${rider.race.wins} | **🏅 Podiums**: ${rider.race.podiums}
-- **Power Ratings**:
-  - **5s:** ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)
-  - **1m:** ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)
-  - **5m:** ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)
-
-[ZwiftPower Profile](https://www.zwiftpower.com/profile.php?z=${rider.riderId}) | [ZwiftRacing Profile](https://www.zwiftracing.app/riders/${rider.riderId})
-`;
-
-            await interaction.reply(statsMessage);
-        } catch (error) {
-            console.error("❌ API Fetch Error:", error);
-            await interaction.reply(`⚠️ Error fetching data for Zwift ID **${zwiftID}**.`);
         }
-    }
 
-    else if (interaction.commandName === "my_zwiftid") {
-        const zwiftID = interaction.options.getString("zwiftid");
-        const discordID = interaction.user.id;
-        const username = interaction.user.username;
+        else if (interaction.commandName === "my_zwiftid") {
+            const zwiftID = interaction.options.getString("zwiftid");
+            const discordID = interaction.user.id;
+            const username = interaction.user.username;
 
-        try {
-            await db.collection("discord_users").doc(discordID).set({
-                discordID,
-                username,
-                zwiftID,
-                linkedAt: admin.firestore.Timestamp.now(),
-            });
+            try {
+                await db.collection("discord_users").doc(discordID).set({
+                    discordID,
+                    username,
+                    zwiftID,
+                    linkedAt: admin.firestore.Timestamp.now(),
+                });
 
-            await interaction.reply(`✅ **Your ZwiftID (${zwiftID}) is now linked to your Discord ID!**`);
-        } catch (error) {
-            console.error("❌ Firebase Error:", error);
-            await interaction.reply(`⚠️ **Error saving your ZwiftID.**`);
-        }
-    }
-
-    else if (interaction.commandName === "whoami") {
-        const discordID = interaction.user.id;
-
-        try {
-            const doc = await db.collection("discord_users").doc(discordID).get();
-
-            if (!doc.exists) {
-                await interaction.reply(`❌ **You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID] to link.**`);
-                return;
+                await interaction.editReply(`✅ **Your ZwiftID (${zwiftID}) is now linked to your Discord ID!**`);
+            } catch (error) {
+                console.error("❌ Firebase Error:", error);
+                await interaction.editReply(`⚠️ **Error saving your ZwiftID.**`);
             }
+        }
 
-            const data = doc.data();
-            await interaction.reply(`✅ **Your linked ZwiftID: ${data.zwiftID}**`);
-        } catch (error) {
-            console.error("❌ Firebase Error:", error);
-            await interaction.reply(`⚠️ **Error fetching your ZwiftID.**`);
+        else if (interaction.commandName === "whoami") {
+            const discordID = interaction.user.id;
+
+            try {
+                const doc = await db.collection("discord_users").doc(discordID).get();
+
+                if (!doc.exists) {
+                    await interaction.editReply(`❌ **You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID] to link.**`);
+                    return;
+                }
+
+                const data = doc.data();
+                await interaction.editReply(`✅ **Your linked ZwiftID: ${data.zwiftID}**`);
+            } catch (error) {
+                console.error("❌ Firebase Error:", error);
+                await interaction.editReply(`⚠️ **Error fetching your ZwiftID.**`);
+            }
+        }
+    } catch (error) {
+        console.error("❌ Unexpected Error in Command Handling:", error);
+
+        // If interaction isn't already replied, send an error message
+        if (!interaction.replied) {
+            await interaction.reply({ content: "⚠️ An unexpected error occurred!", ephemeral: true });
         }
     }
 });
+
 
 // ✅ Start Bot
 client.once("ready", () => {

@@ -153,10 +153,16 @@ client.on("interactionCreate", async interaction => {
                     )
                     .addFields({ name: "📊 **Power Ratings**", value: "" })
                     .addFields(
-                        { name: "5s Power", value: `${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`, inline: true },
-                        { name: "1m Power", value: `${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`, inline: true },
-                        { name: "5m Power", value: `${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`, inline: true },
-                        { name: "20m Power", value: `${rider.power.w1200} W (${rider.power.wkg1200.toFixed(2)} W/kg)`, inline: true }
+                        { name: "5s Power", value: `${rider.power.w5} W`, inline: true },
+                        { name: "1m Power", value: `${rider.power.w60} W`, inline: true },
+                        { name: "5m Power", value: `${rider.power.w300} W`, inline: true },
+                        { name: "20m Power", value: `${rider.power.w1200} W`, inline: true }
+                    )
+                    .addFields(
+                        { name: "5s Power", value: `${rider.power.wkg5.toFixed(2)} W/kg`, inline: true },
+                        { name: "1m Power", value: `${rider.power.wkg60.toFixed(2)} W/kg`, inline: true },
+                        { name: "5m Power", value: `${rider.power.wkg300.toFixed(2)} W/kg`, inline: true },
+                        { name: "20m Power", value: `${rider.power.wkg1200.toFixed(2)} W/kg`, inline: true }
                     )
                     .setFooter({ text: "Data provided by ZwiftRacing.app" })
                     .setTimestamp();

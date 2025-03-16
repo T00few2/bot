@@ -47,7 +47,7 @@ const db = admin.firestore();
 // 🤖 Discord Bot
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// 📝 Define Slash Commands
+// 1️⃣ Build the Slash Commands
 const commands = [
   new SlashCommandBuilder()
     .setName("hello")
@@ -55,7 +55,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("rider_stats")
-    .setDescription("Fetch rider stats for a given ZwiftID or Discord user")
+    .setDescription("Fetch single-rider stats by ZwiftID or Discord user mention")
     .addStringOption(option =>
       option.setName("zwiftid")
         .setDescription("The Zwift ID to check")
@@ -80,7 +80,6 @@ const commands = [
     .setName("whoami")
     .setDescription("Retrieve your linked ZwiftID"),
 
-  // NEW TEAM_STATS COMMAND:
   new SlashCommandBuilder()
     .setName("team_stats")
     .setDescription("Compare multiple riders' stats from today's club_stats data")
@@ -111,7 +110,7 @@ const commands = [
     )
 ].map(command => command.toJSON());
 
-// 🛠️ Register Slash Commands
+// 2️⃣ Register the Slash Commands
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
@@ -126,9 +125,85 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
   }
 })();
 
-// 🎨 Generate a comparative table for multiple riders
+// 3️⃣ Generate Single-Rider Stats Image
+async function generateRiderStatsImage(rider) {
+  // Adjust canvas size as needed
+  const width = 750;
+  const height = 400;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  // Title
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 24px Arial";
+  ctx.fillText(`Rider Stats for ${rider.name}`, 50, 50);
+
+  // Let's place some fields
+  ctx.font = "16px Arial";
+  let startY = 100;
+  // Zwift Category
+  ctx.fillText(`Zwift Category: ${rider.zpCategory}`, 50, startY);
+  startY += 30;
+
+  // vELO Category
+  ctx.fillText(
+    `vELO Category: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`,
+    50, startY
+  );
+  startY += 30;
+
+  // FTP
+  ctx.fillText(
+    `FTP: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`,
+    50, startY
+  );
+  startY += 30;
+
+  // CP
+  ctx.fillText(
+    `CP: ${rider.power.CP.toFixed(0)} W`,
+    50, startY
+  );
+  startY += 30;
+
+  // Phenotype
+  ctx.fillText(
+    `Phenotype: ${rider.phenotype.value}`,
+    50, startY
+  );
+  startY += 30;
+
+  // Power Ratings
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 18px Arial";
+  ctx.fillText("Power Ratings", 400, 100);
+
+  // 5s Power
+  ctx.font = "16px Arial";
+  ctx.fillText(
+    `5s: ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`,
+    400, 130
+  );
+  // 1m Power
+  ctx.fillText(
+    `1m: ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`,
+    400, 160
+  );
+  // 5m Power
+  ctx.fillText(
+    `5m: ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`,
+    400, 190
+  );
+
+  return canvas.toBuffer();
+}
+
+// 4️⃣ Generate Multi-Rider Stats Image (team_stats)
 async function generateTeamStatsImage(ridersArray) {
-  // each element is a Firestore rider object from club_stats doc
   const numCols = ridersArray.length;
   const colWidth = 200;
   const height = 400;
@@ -189,24 +264,26 @@ async function generateTeamStatsImage(ridersArray) {
   return canvas.toBuffer();
 }
 
-// 🎮 Handle Commands
+// 5️⃣ Command Handling
 client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
 
   try {
     await interaction.deferReply();
 
+    // /hello
     if (interaction.commandName === "hello") {
       await interaction.editReply(`Hello, ${interaction.user.username}!`);
     }
 
+    // /my_zwiftid
     else if (interaction.commandName === "my_zwiftid") {
       const zwiftID = interaction.options.getString("zwiftid");
       const discordID = interaction.user.id;
       const username = interaction.user.username;
 
       try {
-        await db.collection("discord_users").doc(discordID).set({
+        await db.collection("users").doc(discordID).set({
           discordID,
           username,
           zwiftID,
@@ -219,10 +296,11 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
+    // /whoami
     else if (interaction.commandName === "whoami") {
       const discordID = interaction.user.id;
       try {
-        const doc = await db.collection("discord_users").doc(discordID).get();
+        const doc = await db.collection("users").doc(discordID).get();
         if (!doc.exists) {
           await interaction.editReply("❌ You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID].");
           return;
@@ -235,13 +313,50 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
+    // /rider_stats
     else if (interaction.commandName === "rider_stats") {
-      // ... your existing logic for a single-rider stats image or embed ...
-      // kept short here for brevity
-      await interaction.editReply("🛠 rider_stats command not fully shown...");
+      try {
+        // 1) Gather user input
+        const zwiftIDOption = interaction.options.getString("zwiftid");
+        const discordUser = interaction.options.getUser("discorduser");
+        let zwiftID = zwiftIDOption;
+
+        // 2) If no direct Zwift ID, but a user mention, fetch from "users"
+        if (!zwiftID && discordUser) {
+          console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
+          const doc = await db.collection("users").doc(discordUser.id).get();
+          if (!doc.exists) {
+            await interaction.editReply(`❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
+            return;
+          }
+          zwiftID = doc.data().zwiftID;
+        }
+
+        if (!zwiftID) {
+          await interaction.editReply("❌ You must provide a ZwiftID or mention a user who has linked one.");
+          return;
+        }
+
+        // 3) Fetch single-rider stats from external API
+        const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
+        const rider = response.data;
+        if (!rider || !rider.name) {
+          await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
+          return;
+        }
+
+        // 4) Generate image & respond
+        const imageBuffer = await generateRiderStatsImage(rider);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
+        await interaction.editReply({ content: "Here are the rider stats:", files: [attachment] });
+
+      } catch (error) {
+        console.error("❌ rider_stats Error:", error);
+        await interaction.editReply("⚠️ Error fetching or generating rider stats.");
+      }
     }
 
-    // 🔥 NEW TEAM_STATS COMMAND
+    // /team_stats
     else if (interaction.commandName === "team_stats") {
       // 1) Collect up to 5 user mentions
       const userMentions = [];
@@ -256,10 +371,10 @@ client.on("interactionCreate", async interaction => {
       }
 
       try {
-        // 2) Convert each mention into a Zwift ID from discord_users
+        // 2) Convert each mention into a Zwift ID from "users"
         const discordToZwiftMap = {};
         for (const userObj of userMentions) {
-          const doc = await db.collection("discord_users").doc(userObj.id).get();
+          const doc = await db.collection("users").doc(userObj.id).get();
           if (!doc.exists) {
             await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
             return;
@@ -285,10 +400,10 @@ client.on("interactionCreate", async interaction => {
 
         // 4) For each Zwift ID, find matching rider in allRiders
         const ridersFound = [];
-        for (const [discordId, zwiftID] of Object.entries(discordToZwiftMap)) {
-          const found = allRiders.find(r => r.riderId === parseInt(zwiftID));
+        for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
+          const found = allRiders.find(r => r.riderId === parseInt(zID));
           if (!found) {
-            await interaction.editReply(`❌ ZwiftID ${zwiftID} not found in today's club_stats data.`);
+            await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
             return;
           }
           ridersFound.push(found);
@@ -305,44 +420,7 @@ client.on("interactionCreate", async interaction => {
         await interaction.editReply("⚠️ Error generating team stats comparison.");
       }
     }
-    else if (interaction.commandName === "my_zwiftid") {
-        const zwiftID = interaction.options.getString("zwiftid");
-        const discordID = interaction.user.id;
-        const username = interaction.user.username;
 
-        try {
-            await db.collection("users").doc(discordID).set({
-                discordID,
-                username,
-                zwiftID,
-                linkedAt: admin.firestore.Timestamp.now(),
-            });
-
-            await interaction.reply(`✅ **Your ZwiftID (${zwiftID}) is now linked to your Discord ID!**`);
-        } catch (error) {
-            console.error("❌ Firebase Error:", error);
-            await interaction.reply(`⚠️ **Error saving your ZwiftID.**`);
-        }
-    }
-
-    else if (interaction.commandName === "whoami") {
-        const discordID = interaction.user.id;
-
-        try {
-            const doc = await db.collection("users").doc(discordID).get();
-
-            if (!doc.exists) {
-                await interaction.reply(`❌ **You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID] to link.**`);
-                return;
-            }
-
-            const data = doc.data();
-            await interaction.reply(`✅ **Your linked ZwiftID: ${data.zwiftID}**`);
-        } catch (error) {
-            console.error("❌ Firebase Error:", error);
-            await interaction.reply(`⚠️ **Error fetching your ZwiftID.**`);
-        }
-    }
   } catch (error) {
     console.error("❌ Unexpected Error:", error);
     if (!interaction.replied) {

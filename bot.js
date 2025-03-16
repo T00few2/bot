@@ -110,7 +110,7 @@ const commands = [
     )
 ].map(command => command.toJSON());
 
-// 2️⃣ Register the Slash Commands
+// 2️⃣ Register Slash Commands
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
@@ -127,73 +127,61 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 
 // 3️⃣ Generate Single-Rider Stats Image
 async function generateRiderStatsImage(rider) {
-  // Adjust canvas size as needed
   const width = 750;
   const height = 400;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // Background
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
-  // Title
   ctx.fillStyle = "#000000";
   ctx.font = "bold 24px Arial";
   ctx.fillText(`Rider Stats for ${rider.name}`, 50, 50);
 
-  // Let's place some fields
   ctx.font = "16px Arial";
   let startY = 100;
-  // Zwift Category
+
   ctx.fillText(`Zwift Category: ${rider.zpCategory}`, 50, startY);
   startY += 30;
 
-  // vELO Category
   ctx.fillText(
     `vELO Category: ${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`,
     50, startY
   );
   startY += 30;
 
-  // FTP
   ctx.fillText(
     `FTP: ${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`,
     50, startY
   );
   startY += 30;
 
-  // CP
   ctx.fillText(
     `CP: ${rider.power.CP.toFixed(0)} W`,
     50, startY
   );
   startY += 30;
 
-  // Phenotype
   ctx.fillText(
     `Phenotype: ${rider.phenotype.value}`,
     50, startY
   );
   startY += 30;
 
-  // Power Ratings
-  ctx.fillStyle = "#000000";
+  // Power Ratings block
   ctx.font = "bold 18px Arial";
   ctx.fillText("Power Ratings", 400, 100);
 
-  // 5s Power
   ctx.font = "16px Arial";
   ctx.fillText(
     `5s: ${rider.power.w5} W (${rider.power.wkg5.toFixed(2)} W/kg)`,
     400, 130
   );
-  // 1m Power
   ctx.fillText(
     `1m: ${rider.power.w60} W (${rider.power.wkg60.toFixed(2)} W/kg)`,
     400, 160
   );
-  // 5m Power
   ctx.fillText(
     `5m: ${rider.power.w300} W (${rider.power.wkg300.toFixed(2)} W/kg)`,
     400, 190
@@ -207,22 +195,18 @@ async function generateTeamStatsImage(ridersArray) {
   const numCols = ridersArray.length;
   const colWidth = 200;
   const height = 400;
-  // A bit of margin + columns
   const width = 100 + colWidth * numCols;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // White background
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
-  // Title
   ctx.fillStyle = "#000000";
   ctx.font = "bold 20px Arial";
   ctx.fillText("Team Stats Comparison", 50, 40);
 
-  // Row labels:
   ctx.font = "bold 16px Arial";
   const labels = ["Name", "Category", "FTP", "CP", "Phenotype"];
 
@@ -231,32 +215,26 @@ async function generateTeamStatsImage(ridersArray) {
     ctx.fillText(label, 20, startY + i * 30);
   });
 
-  // Fill each rider's column
   ridersArray.forEach((rider, colIndex) => {
     const xOffset = 120 + colIndex * colWidth;
     let yOffset = 80;
 
-    // row 1: Name
     ctx.font = "16px Arial";
     ctx.fillText(rider.name, xOffset, yOffset);
     yOffset += 30;
 
-    // row 2: Category
     const catStr = `${rider.zpCategory} / ${rider.race.current.mixed.category}`;
     ctx.fillText(catStr, xOffset, yOffset);
     yOffset += 30;
 
-    // row 3: FTP
     const ftpStr = `${rider.zpFTP} W`;
     ctx.fillText(ftpStr, xOffset, yOffset);
     yOffset += 30;
 
-    // row 4: CP
     const cpStr = `${rider.power.CP.toFixed(0)} W`;
     ctx.fillText(cpStr, xOffset, yOffset);
     yOffset += 30;
 
-    // row 5: Phenotype
     const phenoStr = rider.phenotype.value;
     ctx.fillText(phenoStr, xOffset, yOffset);
   });
@@ -283,7 +261,8 @@ client.on("interactionCreate", async interaction => {
       const username = interaction.user.username;
 
       try {
-        await db.collection("users").doc(discordID).set({
+        // 🔥 NOTE: storing in "discord_users" collection
+        await db.collection("discord_users").doc(discordID).set({
           discordID,
           username,
           zwiftID,
@@ -300,7 +279,8 @@ client.on("interactionCreate", async interaction => {
     else if (interaction.commandName === "whoami") {
       const discordID = interaction.user.id;
       try {
-        const doc = await db.collection("users").doc(discordID).get();
+        // 🔥 reading from "discord_users"
+        const doc = await db.collection("discord_users").doc(discordID).get();
         if (!doc.exists) {
           await interaction.editReply("❌ You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID].");
           return;
@@ -316,15 +296,14 @@ client.on("interactionCreate", async interaction => {
     // /rider_stats
     else if (interaction.commandName === "rider_stats") {
       try {
-        // 1) Gather user input
         const zwiftIDOption = interaction.options.getString("zwiftid");
         const discordUser = interaction.options.getUser("discorduser");
         let zwiftID = zwiftIDOption;
 
-        // 2) If no direct Zwift ID, but a user mention, fetch from "users"
         if (!zwiftID && discordUser) {
           console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
-          const doc = await db.collection("users").doc(discordUser.id).get();
+          // 🔥 reading from "discord_users"
+          const doc = await db.collection("discord_users").doc(discordUser.id).get();
           if (!doc.exists) {
             await interaction.editReply(`❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
             return;
@@ -337,7 +316,6 @@ client.on("interactionCreate", async interaction => {
           return;
         }
 
-        // 3) Fetch single-rider stats from external API
         const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
         const rider = response.data;
         if (!rider || !rider.name) {
@@ -345,7 +323,6 @@ client.on("interactionCreate", async interaction => {
           return;
         }
 
-        // 4) Generate image & respond
         const imageBuffer = await generateRiderStatsImage(rider);
         const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
         await interaction.editReply({ content: "Here are the rider stats:", files: [attachment] });
@@ -358,7 +335,6 @@ client.on("interactionCreate", async interaction => {
 
     // /team_stats
     else if (interaction.commandName === "team_stats") {
-      // 1) Collect up to 5 user mentions
       const userMentions = [];
       for (let i = 1; i <= 5; i++) {
         const userOpt = interaction.options.getUser(`rider${i}`);
@@ -371,10 +347,10 @@ client.on("interactionCreate", async interaction => {
       }
 
       try {
-        // 2) Convert each mention into a Zwift ID from "users"
         const discordToZwiftMap = {};
         for (const userObj of userMentions) {
-          const doc = await db.collection("users").doc(userObj.id).get();
+          // 🔥 reading from "discord_users"
+          const doc = await db.collection("discord_users").doc(userObj.id).get();
           if (!doc.exists) {
             await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
             return;
@@ -382,7 +358,6 @@ client.on("interactionCreate", async interaction => {
           discordToZwiftMap[userObj.id] = doc.data().zwiftID;
         }
 
-        // 3) Get today's club_stats doc
         const dateId = new Date().toISOString().split('T')[0];
         const clubDoc = await db.collection("club_stats").doc(dateId).get();
         if (!clubDoc.exists) {
@@ -398,7 +373,6 @@ client.on("interactionCreate", async interaction => {
 
         const allRiders = clubData.data.riders;
 
-        // 4) For each Zwift ID, find matching rider in allRiders
         const ridersFound = [];
         for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
           const found = allRiders.find(r => r.riderId === parseInt(zID));
@@ -409,7 +383,6 @@ client.on("interactionCreate", async interaction => {
           ridersFound.push(found);
         }
 
-        // 5) Generate comparative table and send
         const imageBuffer = await generateTeamStatsImage(ridersFound);
         const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
 

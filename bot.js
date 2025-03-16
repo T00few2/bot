@@ -305,6 +305,44 @@ client.on("interactionCreate", async interaction => {
         await interaction.editReply("⚠️ Error generating team stats comparison.");
       }
     }
+    else if (interaction.commandName === "my_zwiftid") {
+        const zwiftID = interaction.options.getString("zwiftid");
+        const discordID = interaction.user.id;
+        const username = interaction.user.username;
+
+        try {
+            await db.collection("users").doc(discordID).set({
+                discordID,
+                username,
+                zwiftID,
+                linkedAt: admin.firestore.Timestamp.now(),
+            });
+
+            await interaction.reply(`✅ **Your ZwiftID (${zwiftID}) is now linked to your Discord ID!**`);
+        } catch (error) {
+            console.error("❌ Firebase Error:", error);
+            await interaction.reply(`⚠️ **Error saving your ZwiftID.**`);
+        }
+    }
+
+    else if (interaction.commandName === "whoami") {
+        const discordID = interaction.user.id;
+
+        try {
+            const doc = await db.collection("users").doc(discordID).get();
+
+            if (!doc.exists) {
+                await interaction.reply(`❌ **You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID] to link.**`);
+                return;
+            }
+
+            const data = doc.data();
+            await interaction.reply(`✅ **Your linked ZwiftID: ${data.zwiftID}**`);
+        } catch (error) {
+            console.error("❌ Firebase Error:", error);
+            await interaction.reply(`⚠️ **Error fetching your ZwiftID.**`);
+        }
+    }
   } catch (error) {
     console.error("❌ Unexpected Error:", error);
     if (!interaction.replied) {

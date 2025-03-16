@@ -1,6 +1,7 @@
 const express = require("express");
 const axios = require("axios");
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, AttachmentBuilder } = require("discord.js");
+const { createCanvas } = require("canvas"); // Required for image generation
 require("dotenv").config();
 const admin = require("firebase-admin");
 
@@ -17,11 +18,10 @@ setInterval(async () => {
     } catch (error) {
         console.error("❌ Keep-alive ping failed:", error);
     }
-}, 10 * 60 * 1000); // Ping every 10 minutes
+}, 10 * 60 * 1000);
 
-// 🚀 Load Firebase Config from Environment Variables
+// 🚀 Load Firebase Config
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
 if (!privateKey) {
     throw new Error("FIREBASE_PRIVATE_KEY is not set in environment variables.");
 }
@@ -83,18 +83,61 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
     }
 })();
 
+// 🎨 Function to Generate Table Image
+async function generateStatsImage(rider) {
+    const width = 800, height = 500; // Canvas size
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Background
+    ctx.fillStyle = "#ffffff"; // White background
+    ctx.fillRect(0, 0, width, height);
+
+    // Title
+    ctx.fillStyle = "#000000"; // Black text
+    ctx.font = "bold 24px Arial";
+    ctx.fillText(`🏆 Rider Stats for ${rider.name}, ${rider.club.name}`, 50, 50);
+
+    // Table Headers
+    ctx.font = "bold 18px Arial";
+    ctx.fillText("Zwift Category", 50, 100);
+    ctx.fillText("vELO Category", 250, 100);
+    ctx.fillText("Phenotype", 450, 100);
+
+    // Data Rows
+    ctx.font = "16px Arial";
+    ctx.fillText(rider.zpCategory, 50, 130);
+    ctx.fillText(`${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`, 250, 130);
+    ctx.fillText(rider.phenotype.value, 450, 130);
+
+    // Power Ratings Header
+    ctx.font = "bold 18px Arial";
+    ctx.fillText("📊 Power Ratings", 50, 180);
+
+    // Power Data
+    ctx.font = "16px Arial";
+    ctx.fillText(`30s Power: ${rider.power.w30} W`, 50, 210);
+    ctx.fillText(`5m Power: ${rider.power.w300} W`, 250, 210);
+    ctx.fillText(`20m Power: ${rider.power.w1200} W`, 450, 210);
+
+    ctx.fillText(`30s W/kg: ${rider.power.wkg30.toFixed(2)} W/kg`, 50, 240);
+    ctx.fillText(`5m W/kg: ${rider.power.wkg300.toFixed(2)} W/kg`, 250, 240);
+    ctx.fillText(`20m W/kg: ${rider.power.wkg1200.toFixed(2)} W/kg`, 450, 240);
+
+    return canvas.toBuffer();
+}
+
 // 🎮 Handle Commands
 client.on("interactionCreate", async interaction => {
     if (!interaction.isCommand()) return;
 
     try {
-        // Defer reply immediately to prevent Discord timeout errors (must respond within 3s)
         await interaction.deferReply();
 
         if (interaction.commandName === "hello") {
             await interaction.editReply(`Hello, ${interaction.user.username}!`);
         } 
-        
+
         else if (interaction.commandName === "rider_stats") {
             const zwiftIDOption = interaction.options.getString("zwiftid");
             const discordUser = interaction.options.getUser("discorduser");
@@ -102,7 +145,7 @@ client.on("interactionCreate", async interaction => {
             let zwiftID = zwiftIDOption;
         
             try {
-                // If a Discord user is mentioned, fetch the linked Zwift ID from Firestore
+                // Fetch Zwift ID if user is mentioned
                 if (!zwiftID && discordUser) {
                     console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
         
@@ -116,13 +159,12 @@ client.on("interactionCreate", async interaction => {
                     zwiftID = doc.data().zwiftID;
                 }
         
-                // If no Zwift ID is found, return an error
                 if (!zwiftID) {
                     await interaction.editReply(`❌ **You must provide a ZwiftID or mention a Discord user who has linked one.**`);
                     return;
                 }
         
-                // Fetch Rider Stats from API
+                // Fetch Rider Stats
                 const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
                 const rider = response.data;
         
@@ -131,42 +173,11 @@ client.on("interactionCreate", async interaction => {
                     return;
                 }
 
-                // 🎨 Create an embed for better formatting
-                const embed = new EmbedBuilder()
-                    .setColor("#0099ff")
-                    .setTitle(`🏆 Rider Stats for ${rider.name}, ${rider.club.name}`)
-                    .setURL(`https://www.zwiftpower.com/profile.php?z=${rider.riderId}`)
-                    .setThumbnail("https://upload.wikimedia.org/wikipedia/commons/c/cd/Zwift_logo.png") // Zwift logo
-                    .addFields(
-                        { name: "**Zwift Pace Group**", value: `${rider.zpCategory}`, inline: true },
-                        { name: "**vELO Category**", value: `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`, inline: true },
-                        { name: "**Phenotype**", value: `${rider.phenotype.value}`, inline: true }
-                    )
-                    .addFields(
-                        { name: "**FTP**", value: `${rider.zpFTP} W (${(rider.zpFTP / rider.weight).toFixed(2)} W/kg)`, inline: true },
-                        { name: "**CP**", value: `${rider.power.CP.toFixed(0)} W`, inline: true },
-                        { name: "\u200B", value: "\u200B", inline: true },
-                    )
-                    .addFields(
-                        { name: "**Total Races**", value: `${rider.race.finishes}`, inline: true },
-                        { name: "**Wins**", value: `${rider.race.wins}`, inline: true },
-                        { name: "**Podiums**", value: `${rider.race.podiums}`, inline: true }
-                    )
-                    .addFields({ name: "📊 **Power Ratings**", value: "\u200B" }) // Power Ratings Divider
-                    .addFields(
-                        { name: "⚡ 30s Power", value: `${rider.power.w30} W`, inline: true },
-                        { name: "⚡ 5m Power", value: `${rider.power.w300} W`, inline: true },
-                        { name: "⚡ 20m Power", value: `${rider.power.w1200} W`, inline: true }
-                    )
-                    .addFields(
-                        { name: "⚡ 30s W/kg", value: `${rider.power.wkg30.toFixed(2)} W/kg`, inline: true },
-                        { name: "⚡ 5m W/kg", value: `${rider.power.wkg300.toFixed(2)} W/kg`, inline: true },
-                        { name: "⚡ 20m W/kg", value: `${rider.power.wkg1200.toFixed(2)} W/kg`, inline: true }
-                    )
-                    .setFooter({ text: "Data provided by ZwiftRacing.app" })
-                    .setTimestamp();
+                // Generate and send image
+                const imageBuffer = await generateStatsImage(rider);
+                const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
 
-                await interaction.editReply({ embeds: [embed] });
+                await interaction.editReply({ content: "Here are the rider stats:", files: [attachment] });
 
             } catch (error) {
                 console.error("❌ API Fetch Error:", error);

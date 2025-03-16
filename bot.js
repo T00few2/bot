@@ -447,7 +447,7 @@ client.on("interactionCreate", async interaction => {
       
           // 4) Build ZwiftPower links for each rider
           const zPLinks = ridersFound
-            .map(r => `[${r.name}](https://www.zwiftpower.com/profile.php?z=${r.riderId})`)
+            .map(r => `[${r.name}](<https://www.zwiftpower.com/profile.php?z=${r.riderId}>)`)
             .join(" | ");
       
           // 5) Generate comparative table

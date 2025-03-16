@@ -61,11 +61,16 @@ const commands = [
         .setDescription("Replies with Hello, @User!"),
     new SlashCommandBuilder()
         .setName("rider_stats")
-        .setDescription("Fetch rider stats for a given ZwiftID")
+        .setDescription("Fetch rider stats for a given ZwiftID or Discord user")
         .addStringOption(option =>
             option.setName("zwiftid")
                 .setDescription("The Zwift ID to check")
-                .setRequired(true)
+                .setRequired(false)
+        )
+        .addUserOption(option =>
+            option.setName("discorduser")
+                .setDescription("Mention a Discord user to fetch their linked ZwiftID")
+                .setRequired(false)
         ),
     new SlashCommandBuilder()
         .setName("my_zwiftid")

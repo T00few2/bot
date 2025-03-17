@@ -13,11 +13,11 @@ const {
   ButtonStyle
 } = require("discord.js");
 const { createCanvas } = require("canvas"); // For image generation
-const crypto = require("crypto");          // For unique keys
+const crypto = require("crypto");          // For unique ephemeral keys
 require("dotenv").config();
 const admin = require("firebase-admin");
 
-// 🌍 Fake Web Server to Keep Render Free Tier
+// 🌍 Fake Web Server (to keep Render Free Tier awake)
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running!"));
 app.listen(3000, () => console.log("Fake web server running on port 3000"));
@@ -32,45 +32,44 @@ setInterval(async () => {
   }
 }, 10 * 60 * 1000);
 
-// 🚀 Init Firebase
+// 🚀 Initialize Firebase
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 if (!privateKey) {
   throw new Error("FIREBASE_PRIVATE_KEY is not set in environment variables.");
 }
-
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: privateKey.replace(/\\n/g, '\n'),
+    privateKey: privateKey.replace(/\\n/g, "\n"),
   }),
   databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
 });
-
 const db = admin.firestore();
 
-// 🤖 Discord Bot
+// 🤖 Create Discord Bot Client
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 /**
- * A global store for ephemeral results waiting to be published.
- * Key: a unique string
- * Value: { content: string, files?: AttachmentBuilder[] }
+ * A global store for ephemeral results. 
+ * Maps a unique key => { content, files } to allow "Publish to Channel."
  */
 const ephemeralStore = new Map();
 
 /**
- * Utility function to store ephemeral content in ephemeralStore,
- * then edit the ephemeral reply to show a "Publish to Channel" button.
+ * Utility: ephemeralReplyWithPublish
+ *  - Generates a unique ID
+ *  - Stores the ephemeral content in ephemeralStore
+ *  - Edits the ephemeral reply to include the content and a "Publish to Channel" button
  */
 async function ephemeralReplyWithPublish(interaction, content, files = []) {
-  // 1) Generate a unique key
+  // 1) Unique key
   const uniqueId = crypto.randomUUID();
 
-  // 2) Store ephemeral data so we can publish it later
+  // 2) Store ephemeral data for publishing
   ephemeralStore.set(uniqueId, { content, files });
 
-  // 3) Create a "Publish" button
+  // 3) Create "Publish" button
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`publish_${uniqueId}`)
@@ -78,7 +77,7 @@ async function ephemeralReplyWithPublish(interaction, content, files = []) {
       .setStyle(ButtonStyle.Primary)
   );
 
-  // 4) Edit the ephemeral reply to add the "Publish" button
+  // 4) Edit ephemeral reply with the content + "Publish" button
   await interaction.editReply({
     content,
     files,
@@ -93,12 +92,14 @@ const commands = [
     .setName("rider_stats")
     .setDescription("Fetch single-rider stats by ZwiftID or Discord user mention")
     .addStringOption(option =>
-      option.setName("zwiftid")
+      option
+        .setName("zwiftid")
         .setDescription("The Zwift ID to check")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("discorduser")
+      option
+        .setName("discorduser")
         .setDescription("Mention a Discord user to fetch their linked ZwiftID")
         .setRequired(false)
     ),
@@ -107,7 +108,8 @@ const commands = [
     .setName("my_zwiftid")
     .setDescription("Link your Discord ID to a ZwiftID")
     .addStringOption(option =>
-      option.setName("zwiftid")
+      option
+        .setName("zwiftid")
         .setDescription("Your Zwift ID")
         .setRequired(true)
     ),
@@ -120,42 +122,50 @@ const commands = [
     .setName("team_stats")
     .setDescription("Compare multiple riders' stats from today's club_stats data")
     .addUserOption(option =>
-      option.setName("rider1")
+      option
+        .setName("rider1")
         .setDescription("First Discord user to compare")
         .setRequired(true)
     )
     .addUserOption(option =>
-      option.setName("rider2")
+      option
+        .setName("rider2")
         .setDescription("Second Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider3")
+      option
+        .setName("rider3")
         .setDescription("Third Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider4")
+      option
+        .setName("rider4")
         .setDescription("Fourth Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider5")
+      option
+        .setName("rider5")
         .setDescription("Fifth Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider6")
+      option
+        .setName("rider6")
         .setDescription("Sixth Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider7")
+      option
+        .setName("rider7")
         .setDescription("Seventh Discord user")
         .setRequired(false)
     )
     .addUserOption(option =>
-      option.setName("rider8")
+      option
+        .setName("rider8")
         .setDescription("Eighth Discord user")
         .setRequired(false)
     ),
@@ -169,19 +179,16 @@ const commands = [
         .setDescription("First 3+ letters of the rider's name")
         .setRequired(true)
     )
-
-].map(command => command.toJSON());
+].map(cmd => cmd.toJSON());
 
 // 2️⃣ Register Slash Commands
-
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
     console.log("Registering slash commands...");
-    await rest.put(
-      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), {
+      body: commands
+    });
     console.log("✅ Slash commands registered.");
   } catch (error) {
     console.error("❌ Error registering commands:", error);
@@ -189,10 +196,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 })();
 
 // 3️⃣ Single-Rider Stats (13-row layout)
-
 async function generateSingleRiderStatsImage(rider) {
-  // ... identical logic from your snippet ...
-  // (Just keep your existing function body)
   const rowCount = 13;
   const rowHeight = 30;
   const topMargin = 80;
@@ -260,8 +264,6 @@ async function generateSingleRiderStatsImage(rider) {
 
 // 4️⃣ Multi-Rider Stats (13-row layout)
 async function generateTeamStatsImage(ridersArray) {
-  // ... identical logic from your snippet ...
-  // (Keep your existing function body)
   const rowCount = 13;
   const rowHeight = 30;
   const topMargin = 80;
@@ -334,14 +336,14 @@ async function generateTeamStatsImage(ridersArray) {
 // 5️⃣ Interaction Handling
 client.on("interactionCreate", async interaction => {
   try {
-    // (A) Handle "Publish" button
+    // (A) If user clicked a "Publish" button
     if (interaction.isButton() && interaction.customId.startsWith("publish_")) {
       const uniqueId = interaction.customId.replace("publish_", "");
       const stored = ephemeralStore.get(uniqueId);
       if (!stored) {
-        await interaction.reply({
-          content: "❌ Could not find the content to publish.",
-          ephemeral: true
+        await interaction.reply({ 
+          content: "❌ Could not find the content to publish.", 
+          ephemeral: true 
         });
         return;
       }
@@ -350,7 +352,7 @@ client.on("interactionCreate", async interaction => {
       // Defer to avoid "Interaction failed"
       await interaction.deferUpdate();
 
-      // Post a brand-new public message
+      // Post new public message
       await interaction.followUp({
         content: stored.content,
         files: stored.files ?? [],
@@ -362,23 +364,49 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
-    // (B) If it's a StringSelectMenu for browse_riders
+    // (B) If user selected a rider in browse_riders
     if (interaction.isStringSelectMenu() && interaction.customId === "select_rider") {
       try {
-        const [selectedValue] = interaction.values;
+        const [selectedValue] = interaction.values; // ZwiftID as string
         await interaction.deferUpdate();
-        await interaction.editReply({
-          content: `You selected a rider with ZwiftID: **${selectedValue}**`,
-          components: []
-        });
+
+        // We'll fetch the rider name from the club_stats again 
+        const dateId = new Date().toISOString().split("T")[0];
+        const clubDoc = await db.collection("club_stats").doc(dateId).get();
+        if (!clubDoc.exists) {
+          await interaction.editReply("❌ No club_stats found for today.");
+          return;
+        }
+        const docData = clubDoc.data();
+        if (!docData?.data?.riders) {
+          await interaction.editReply("❌ No riders array in today's club_stats!");
+          return;
+        }
+        const allRiders = docData.data.riders;
+
+        // find the chosen rider by ID
+        const chosen = allRiders.find(r => r.riderId === parseInt(selectedValue));
+        if (!chosen) {
+          await interaction.editReply("❌ Could not find that rider in today's list!");
+          return;
+        }
+
+        // e.g. "Anders Hove [DZR] has ZwiftID: 12345"
+        const content = `**${chosen.name}** has ZwiftID: **${chosen.riderId}**`;
+
+        // ephemeral + "Publish"
+        await ephemeralReplyWithPublish(interaction, content);
+
       } catch (error) {
         console.error("❌ select_rider Error:", error);
-        await interaction.editReply("⚠️ Error selecting rider.");
+        if (!interaction.replied) {
+          await interaction.editReply("⚠️ Error selecting rider.");
+        }
       }
       return;
     }
 
-    // (C) If it's a slash command
+    // (C) If slash command
     if (!interaction.isCommand()) return;
 
     // Defer ephemeral reply
@@ -391,6 +419,7 @@ client.on("interactionCreate", async interaction => {
       const zwiftID = interaction.options.getString("zwiftid");
       const discordID = interaction.user.id;
       const username = interaction.user.username;
+
       try {
         await db.collection("discord_users").doc(discordID).set({
           discordID,
@@ -489,7 +518,7 @@ client.on("interactionCreate", async interaction => {
           discordToZwiftMap[userObj.id] = doc.data().zwiftID;
         }
 
-        const dateId = new Date().toISOString().split('T')[0];
+        const dateId = new Date().toISOString().split("T")[0];
         const clubDoc = await db.collection("club_stats").doc(dateId).get();
         if (!clubDoc.exists) {
           await ephemeralReplyWithPublish(interaction, `❌ No club_stats found for date: ${dateId}`);
@@ -579,7 +608,7 @@ client.on("interactionCreate", async interaction => {
             .addOptions(options)
         );
 
-        // Typically ephemeral, but let's not add a "Publish" button for a select menu
+        // Show ephemeral select menu
         await interaction.editReply({
           content: `**Found ${matchingRiders.length} riders** starting with "${searchTerm}". Select one:`,
           components: [row],
@@ -594,7 +623,7 @@ client.on("interactionCreate", async interaction => {
   } catch (error) {
     console.error("❌ Unexpected Error:", error);
     if (!interaction.replied) {
-      // final fallback ephemeral error
+      // fallback ephemeral error
       await interaction.reply({ content: "⚠️ An unexpected error occurred!", ephemeral: true });
     }
   }

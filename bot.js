@@ -8,9 +8,12 @@ const {
   Routes,
   AttachmentBuilder,
   ActionRowBuilder,
-  StringSelectMenuBuilder
+  StringSelectMenuBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
 const { createCanvas } = require("canvas"); // For image generation
+const crypto = require("crypto");          // For unique keys
 require("dotenv").config();
 const admin = require("firebase-admin");
 
@@ -49,6 +52,41 @@ const db = admin.firestore();
 // 🤖 Discord Bot
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+/**
+ * A global store for ephemeral results waiting to be published.
+ * Key: a unique string
+ * Value: { content: string, files?: AttachmentBuilder[] }
+ */
+const ephemeralStore = new Map();
+
+/**
+ * Utility function to store ephemeral content in ephemeralStore,
+ * then edit the ephemeral reply to show a "Publish to Channel" button.
+ */
+async function ephemeralReplyWithPublish(interaction, content, files = []) {
+  // 1) Generate a unique key
+  const uniqueId = crypto.randomUUID();
+
+  // 2) Store ephemeral data so we can publish it later
+  ephemeralStore.set(uniqueId, { content, files });
+
+  // 3) Create a "Publish" button
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`publish_${uniqueId}`)
+      .setLabel("Publish to Channel")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  // 4) Edit the ephemeral reply to add the "Publish" button
+  await interaction.editReply({
+    content,
+    files,
+    components: [row],
+    ephemeral: true
+  });
+}
+
 // 1️⃣ Define Slash Commands
 const commands = [
   new SlashCommandBuilder()
@@ -78,7 +116,6 @@ const commands = [
     .setName("whoami")
     .setDescription("Retrieve your linked ZwiftID"),
 
-  // team_stats
   new SlashCommandBuilder()
     .setName("team_stats")
     .setDescription("Compare multiple riders' stats from today's club_stats data")
@@ -123,7 +160,6 @@ const commands = [
         .setRequired(false)
     ),
 
-  // NEW browse_riders
   new SlashCommandBuilder()
     .setName("browse_riders")
     .setDescription("Browse riders in today's club_stats by first 3 letters")
@@ -137,6 +173,7 @@ const commands = [
 ].map(command => command.toJSON());
 
 // 2️⃣ Register Slash Commands
+const { REST, Routes } = require("discord.js");
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
@@ -152,7 +189,10 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 })();
 
 // 3️⃣ Single-Rider Stats (13-row layout)
+const { createCanvas } = require("canvas");
 async function generateSingleRiderStatsImage(rider) {
+  // ... identical logic from your snippet ...
+  // (Just keep your existing function body)
   const rowCount = 13;
   const rowHeight = 30;
   const topMargin = 80;
@@ -191,7 +231,6 @@ async function generateSingleRiderStatsImage(rider) {
     ctx.fillText(label, leftMargin, topMargin + (i * rowHeight));
   });
 
-  // Values
   let yOffset = topMargin;
   const xOffset = leftMargin + 150;
   ctx.font = "16px Arial";
@@ -221,6 +260,8 @@ async function generateSingleRiderStatsImage(rider) {
 
 // 4️⃣ Multi-Rider Stats (13-row layout)
 async function generateTeamStatsImage(ridersArray) {
+  // ... identical logic from your snippet ...
+  // (Keep your existing function body)
   const rowCount = 13;
   const rowHeight = 30;
   const topMargin = 80;
@@ -292,38 +333,61 @@ async function generateTeamStatsImage(ridersArray) {
 
 // 5️⃣ Interaction Handling
 client.on("interactionCreate", async interaction => {
-  // 5a) Handle StringSelectMenu for browse_riders
-  if (interaction.isStringSelectMenu()) {
-    // user picked from the "select_rider" menu
-    if (interaction.customId === "select_rider") {
-      try {
-        // We'll just pick the first selected value
-        const [selectedValue] = interaction.values; // ZwiftID as string
-        // Defer the update so we don't see "Interaction failed"
-        await interaction.deferUpdate();
+  try {
+    // (A) Handle "Publish" button
+    if (interaction.isButton() && interaction.customId.startsWith("publish_")) {
+      const uniqueId = interaction.customId.replace("publish_", "");
+      const stored = ephemeralStore.get(uniqueId);
+      if (!stored) {
+        await interaction.reply({
+          content: "❌ Could not find the content to publish.",
+          ephemeral: true
+        });
+        return;
+      }
+      ephemeralStore.delete(uniqueId);
 
-        // Show the user the Zwift ID
+      // Defer to avoid "Interaction failed"
+      await interaction.deferUpdate();
+
+      // Post a brand-new public message
+      await interaction.followUp({
+        content: stored.content,
+        files: stored.files ?? [],
+        ephemeral: false
+      });
+
+      // Remove the publish button from ephemeral so it can't be clicked again
+      await interaction.editReply({ components: [] });
+      return;
+    }
+
+    // (B) If it's a StringSelectMenu for browse_riders
+    if (interaction.isStringSelectMenu() && interaction.customId === "select_rider") {
+      try {
+        const [selectedValue] = interaction.values;
+        await interaction.deferUpdate();
         await interaction.editReply({
           content: `You selected a rider with ZwiftID: **${selectedValue}**`,
-          components: [] // remove the select menu
+          components: []
         });
       } catch (error) {
         console.error("❌ select_rider Error:", error);
         await interaction.editReply("⚠️ Error selecting rider.");
       }
+      return;
     }
-    return; // done
-  }
 
-  // 5b) Handle Slash Commands
-  if (!interaction.isCommand()) return;
+    // (C) If it's a slash command
+    if (!interaction.isCommand()) return;
 
-  try {
-    await interaction.deferReply();
+    // Defer ephemeral reply
+    await interaction.deferReply({ ephemeral: true });
+
+    const commandName = interaction.commandName;
 
     // /my_zwiftid
-    if (interaction.commandName === "my_zwiftid") {
-      // existing code ...
+    if (commandName === "my_zwiftid") {
       const zwiftID = interaction.options.getString("zwiftid");
       const discordID = interaction.user.id;
       const username = interaction.user.username;
@@ -334,86 +398,84 @@ client.on("interactionCreate", async interaction => {
           zwiftID,
           linkedAt: admin.firestore.Timestamp.now(),
         });
-        await interaction.editReply(`✅ Your ZwiftID (${zwiftID}) is now linked to your Discord ID!`);
+        const content = `✅ Your ZwiftID (${zwiftID}) is now linked to your Discord ID!`;
+        await ephemeralReplyWithPublish(interaction, content);
       } catch (error) {
         console.error("❌ Firebase Error:", error);
-        await interaction.editReply(`⚠️ Error saving your ZwiftID.`);
+        await interaction.editReply({ content: "⚠️ Error saving your ZwiftID." });
       }
     }
 
     // /whoami
-    else if (interaction.commandName === "whoami") {
-      // existing code ...
+    else if (commandName === "whoami") {
       const discordID = interaction.user.id;
       try {
         const doc = await db.collection("discord_users").doc(discordID).get();
         if (!doc.exists) {
-          await interaction.editReply("❌ You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID].");
+          const content = "❌ You haven't linked a ZwiftID yet! Use /my_zwiftid [ZwiftID].";
+          await ephemeralReplyWithPublish(interaction, content);
           return;
         }
         const data = doc.data();
-        await interaction.editReply(`✅ Your linked ZwiftID: ${data.zwiftID}`);
+        const content = `✅ Your linked ZwiftID: ${data.zwiftID}`;
+        await ephemeralReplyWithPublish(interaction, content);
       } catch (error) {
         console.error("❌ Firebase Error:", error);
-        await interaction.editReply("⚠️ Error fetching your ZwiftID.");
+        await interaction.editReply({ content: "⚠️ Error fetching your ZwiftID." });
       }
     }
 
     // /rider_stats
-    else if (interaction.commandName === "rider_stats") {
-      // existing code ...
+    else if (commandName === "rider_stats") {
       try {
         const zwiftIDOption = interaction.options.getString("zwiftid");
         const discordUser = interaction.options.getUser("discorduser");
         let zwiftID = zwiftIDOption;
 
         if (!zwiftID && discordUser) {
-          console.log(`Fetching Zwift ID for Discord user: ${discordUser.tag} (${discordUser.id})`);
           const doc = await db.collection("discord_users").doc(discordUser.id).get();
           if (!doc.exists) {
-            await interaction.editReply(`❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
+            await ephemeralReplyWithPublish(interaction, `❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
             return;
           }
           zwiftID = doc.data().zwiftID;
         }
 
         if (!zwiftID) {
-          await interaction.editReply("❌ You must provide a ZwiftID or mention a user who has linked one.");
+          await ephemeralReplyWithPublish(interaction, "❌ You must provide a ZwiftID or mention a user who has linked one.");
           return;
         }
 
         const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
         const rider = response.data;
         if (!rider || !rider.name) {
-          await interaction.editReply(`❌ No data found for Zwift ID **${zwiftID}**.`);
+          await ephemeralReplyWithPublish(interaction, `❌ No data found for ZwiftID **${zwiftID}**.`);
           return;
         }
 
         const imageBuffer = await generateSingleRiderStatsImage(rider);
         const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
         const zwiftPowerLink = `[${rider.name}](<https://www.zwiftpower.com/profile.php?z=${rider.riderId}>)`;
+        const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n`;
 
-        await interaction.editReply({
-          content: `ZwiftPower Profile: ${zwiftPowerLink}\n\n`,
-          files: [attachment],
-        });
+        await ephemeralReplyWithPublish(interaction, content, [attachment]);
       } catch (error) {
         console.error("❌ rider_stats Error:", error);
-        await interaction.editReply("⚠️ Error fetching or generating rider stats.");
+        await interaction.editReply({ content: "⚠️ Error fetching or generating rider stats." });
       }
     }
 
     // /team_stats
-    else if (interaction.commandName === "team_stats") {
+    else if (commandName === "team_stats") {
       try {
-        // existing code ...
         const userMentions = [];
         for (let i = 1; i <= 8; i++) {
           const userOpt = interaction.options.getUser(`rider${i}`);
           if (userOpt) userMentions.push(userOpt);
         }
+
         if (userMentions.length === 0) {
-          await interaction.editReply("❌ You must mention at least one Discord user.");
+          await ephemeralReplyWithPublish(interaction, "❌ You must mention at least one Discord user.");
           return;
         }
 
@@ -421,7 +483,7 @@ client.on("interactionCreate", async interaction => {
         for (const userObj of userMentions) {
           const doc = await db.collection("discord_users").doc(userObj.id).get();
           if (!doc.exists) {
-            await interaction.editReply(`❌ **${userObj.username}** has not linked a ZwiftID yet!`);
+            await ephemeralReplyWithPublish(interaction, `❌ **${userObj.username}** has not linked a ZwiftID yet!`);
             return;
           }
           discordToZwiftMap[userObj.id] = doc.data().zwiftID;
@@ -430,13 +492,13 @@ client.on("interactionCreate", async interaction => {
         const dateId = new Date().toISOString().split('T')[0];
         const clubDoc = await db.collection("club_stats").doc(dateId).get();
         if (!clubDoc.exists) {
-          await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
+          await ephemeralReplyWithPublish(interaction, `❌ No club_stats found for date: ${dateId}`);
           return;
         }
 
         const clubData = clubDoc.data();
         if (!clubData?.data?.riders) {
-          await interaction.editReply("❌ This club_stats document has no riders array!");
+          await ephemeralReplyWithPublish(interaction, "❌ This club_stats document has no riders array!");
           return;
         }
 
@@ -445,7 +507,7 @@ client.on("interactionCreate", async interaction => {
         for (const [discordId, zID] of Object.entries(discordToZwiftMap)) {
           const found = allRiders.find(r => r.riderId === parseInt(zID));
           if (!found) {
-            await interaction.editReply(`❌ ZwiftID ${zID} not found in today's club_stats data.`);
+            await ephemeralReplyWithPublish(interaction, `❌ ZwiftID ${zID} not found in today's club_stats data.`);
             return;
           }
           ridersFound.push(found);
@@ -457,66 +519,59 @@ client.on("interactionCreate", async interaction => {
 
         const imageBuffer = await generateTeamStatsImage(ridersFound);
         const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+        const content = `ZwiftPower Profiles: ${zPLinks}\n\n`;
 
-        await interaction.editReply({
-          content: `ZwiftPower Profiles: ${zPLinks}\n\n`,
-          files: [attachment]
-        });
+        await ephemeralReplyWithPublish(interaction, content, [attachment]);
       } catch (error) {
         console.error("❌ team_stats Error:", error);
-        await interaction.editReply("⚠️ Error generating team stats comparison.");
+        await interaction.editReply({ content: "⚠️ Error generating team stats comparison." });
       }
     }
 
-    // /browse_riders (NEW)
-    else if (interaction.commandName === "browse_riders") {
+    // /browse_riders
+    else if (commandName === "browse_riders") {
       try {
-        // 1) Get search term
         const searchTerm = interaction.options.getString("searchterm") || "";
         if (searchTerm.length < 3) {
-          await interaction.editReply("❌ Please provide at least 3 letters.");
+          await ephemeralReplyWithPublish(interaction, "❌ Please provide at least 3 letters.");
           return;
         }
 
-        // 2) Fetch today's club_stats
         const dateId = new Date().toISOString().split("T")[0];
         const clubDoc = await db.collection("club_stats").doc(dateId).get();
         if (!clubDoc.exists) {
-          await interaction.editReply(`❌ No club_stats found for date: ${dateId}`);
+          await ephemeralReplyWithPublish(interaction, `❌ No club_stats found for date: ${dateId}`);
           return;
         }
 
         const docData = clubDoc.data();
         if (!docData?.data?.riders) {
-          await interaction.editReply("❌ No riders array in today's club_stats!");
+          await ephemeralReplyWithPublish(interaction, "❌ No riders array in today's club_stats!");
           return;
         }
 
         const allRiders = docData.data.riders;
         if (!Array.isArray(allRiders) || allRiders.length === 0) {
-          await interaction.editReply("❌ No riders found.");
+          await ephemeralReplyWithPublish(interaction, "❌ No riders found.");
           return;
         }
 
-        // 3) Filter by first 3+ letters
         const lowerSearch = searchTerm.toLowerCase();
-        const matchingRiders = allRiders.filter(r => 
+        const matchingRiders = allRiders.filter(r =>
           r.name && r.name.toLowerCase().startsWith(lowerSearch)
         );
 
         if (matchingRiders.length === 0) {
-          await interaction.editReply(`❌ No riders found starting with "${searchTerm}".`);
+          await ephemeralReplyWithPublish(interaction, `❌ No riders found starting with "${searchTerm}".`);
           return;
         }
 
-        // 4) Build up to 25 select-menu options
         const options = matchingRiders.slice(0, 25).map(r => ({
           label: r.name.slice(0, 100),
           description: `ZwiftID: ${r.riderId}`,
           value: r.riderId.toString()
         }));
 
-        // 5) Create Select Menu
         const row = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId("select_rider")
@@ -524,22 +579,22 @@ client.on("interactionCreate", async interaction => {
             .addOptions(options)
         );
 
-        // 6) Show ephemeral menu
+        // Typically ephemeral, but let's not add a "Publish" button for a select menu
         await interaction.editReply({
           content: `**Found ${matchingRiders.length} riders** starting with "${searchTerm}". Select one:`,
           components: [row],
           ephemeral: true
         });
-
       } catch (error) {
         console.error("❌ browse_riders Error:", error);
-        await interaction.editReply("⚠️ Error fetching rider list.");
+        await interaction.editReply({ content: "⚠️ Error fetching rider list." });
       }
     }
 
   } catch (error) {
     console.error("❌ Unexpected Error:", error);
     if (!interaction.replied) {
+      // final fallback ephemeral error
       await interaction.reply({ content: "⚠️ An unexpected error occurred!", ephemeral: true });
     }
   }

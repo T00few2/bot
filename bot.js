@@ -189,7 +189,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 })();
 
 // 3️⃣ Single-Rider Stats (13-row layout)
-const { createCanvas } = require("canvas");
+
 async function generateSingleRiderStatsImage(rider) {
   // ... identical logic from your snippet ...
   // (Just keep your existing function body)

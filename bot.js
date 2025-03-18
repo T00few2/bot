@@ -192,7 +192,7 @@ const commands = [
 ].map(cmd => cmd.toJSON());
 
 // 6️⃣ Register Slash Commands
-const { REST, Routes } = require("discord.js");
+
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
 (async () => {
   try {
@@ -208,7 +208,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 })();
 
 // 7️⃣ Single-Rider Stats (13-row layout)
-const { createCanvas } = require("canvas");
+
 async function generateSingleRiderStatsImage(rider) {
   // same logic from your snippet
   const rowCount = 13;

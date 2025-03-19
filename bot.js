@@ -485,12 +485,11 @@ client.on("interactionCreate", async interaction => {
         return;
       } else if (interaction.customId.startsWith("setzwift_select_")) {
         try {
-          // Custom select for /set_zwiftid command
-          const parts = interaction.customId.split("_"); // format: setzwift_select_<targetUserId>
+          // Custom select for /set_zwiftid command: customId format: setzwift_select_<targetUserId>
+          const parts = interaction.customId.split("_");
           const targetUserId = parts[2];
           const [selectedValue] = interaction.values;
           await interaction.deferUpdate();
-          // Fetch target user (from cache or API)
           const targetUser = await client.users.fetch(targetUserId);
           await db.collection("discord_users").doc(targetUserId).set({
             discordID: targetUserId,
@@ -521,7 +520,6 @@ client.on("interactionCreate", async interaction => {
       const searchTerm = interaction.options.getString("searchterm");
       const discordID = interaction.user.id;
       const username = interaction.user.username;
-
       if (zwiftID) {
         try {
           await db.collection("discord_users").doc(discordID).set({
@@ -538,7 +536,6 @@ client.on("interactionCreate", async interaction => {
         }
         return;
       }
-
       if (searchTerm) {
         if (searchTerm.length < 3) {
           await ephemeralReplyWithPublish(interaction, "❌ Please provide at least 3 letters!");
@@ -584,7 +581,73 @@ client.on("interactionCreate", async interaction => {
       }
       await ephemeralReplyWithPublish(interaction, "❌ Provide either `zwiftid:` or `searchterm:` to link.");
     }
-    // get_zwiftid
+    // set_zwiftid (for setting another user's ZwiftID)
+    else if (commandName === "set_zwiftid") {
+      const targetUser = interaction.options.getUser("discorduser");
+      const directZwiftId = interaction.options.getString("zwiftid");
+      const searchTerm = interaction.options.getString("searchterm");
+      if (directZwiftId) {
+        try {
+          await db.collection("discord_users").doc(targetUser.id).set({
+            discordID: targetUser.id,
+            username: targetUser.username,
+            zwiftID: directZwiftId,
+            linkedAt: admin.firestore.Timestamp.now(),
+          });
+          const content = `✅ Linked ZwiftID **${directZwiftId}** to ${targetUser.username}.`;
+          await ephemeralReplyWithPublish(interaction, content);
+        } catch (error) {
+          console.error("❌ set_zwiftid Firebase Error:", error);
+          await interaction.editReply({ content: "⚠️ Error saving ZwiftID." });
+        }
+        return;
+      }
+      if (searchTerm) {
+        if (searchTerm.length < 3) {
+          await ephemeralReplyWithPublish(interaction, "❌ Please provide at least 3 letters for search!");
+          return;
+        }
+        const dateId = new Date().toISOString().split("T")[0];
+        const clubDoc = await db.collection("club_stats").doc(dateId).get();
+        if (!clubDoc.exists) {
+          await ephemeralReplyWithPublish(interaction, `❌ No club_stats found for date: ${dateId}`);
+          return;
+        }
+        const docData = clubDoc.data();
+        if (!docData?.data?.riders) {
+          await ephemeralReplyWithPublish(interaction, "❌ No riders array in today's club_stats!");
+          return;
+        }
+        const allRiders = docData.data.riders || [];
+        const lowerSearch = searchTerm.toLowerCase();
+        const matchingRiders = allRiders.filter(r =>
+          r.name && r.name.toLowerCase().startsWith(lowerSearch)
+        );
+        if (matchingRiders.length === 0) {
+          await ephemeralReplyWithPublish(interaction, `❌ No riders found starting with "${searchTerm}".`);
+          return;
+        }
+        const options = matchingRiders.slice(0, 25).map(r => ({
+          label: r.name.slice(0, 100),
+          description: `ZwiftID: ${r.riderId}`,
+          value: r.riderId.toString()
+        }));
+        const row = new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("setzwift_select_" + targetUser.id)
+            .setPlaceholder("Select the rider for " + targetUser.username)
+            .addOptions(options)
+        );
+        await interaction.editReply({
+          content: `**Found ${matchingRiders.length} riders** matching "${searchTerm}" for ${targetUser.username}. Select one:`,
+          components: [row],
+          ephemeral: true
+        });
+        return;
+      }
+      await ephemeralReplyWithPublish(interaction, "❌ Provide either `zwiftid:` or `searchterm:` to link for the specified user.");
+    }
+    // get_zwiftid (retrieve a user's linked ZwiftID)
     else if (commandName === "get_zwiftid") {
       try {
         const targetUser = interaction.options.getUser("discorduser");

@@ -267,7 +267,7 @@ async function generateSingleRiderStatsImage(rider) {
   // Title text
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 30px Arial";
-  ctx.fillText("Rider Stats 🧮", leftMargin, 70);
+  ctx.fillText("Rider Stats", leftMargin, 70);
 
   // Row labels
   ctx.font = "bold 22px Arial";
@@ -281,9 +281,9 @@ async function generateSingleRiderStatsImage(rider) {
     "1m",
     "5m",
     "20m",
-    "🏁 Finishes",
-    "🏆 Wins",
-    "🏅 Podiums",
+    "Finishes",
+    "😁 Wins",
+    "☺️ Podiums",
     "😖 DNFs"
   ];
 

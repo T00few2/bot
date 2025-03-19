@@ -202,7 +202,10 @@ const commands = [
         .setName("searchterm")
         .setDescription("First 3+ letters to search for the rider")
         .setRequired(false)
-    ),
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
+    
+
   // NEW: get_zwiftid (for retrieving a user's linked ZwiftID)
   new SlashCommandBuilder()
     .setName("get_zwiftid")

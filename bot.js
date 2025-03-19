@@ -10,7 +10,8 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionsBitField
 } = require("discord.js");
 const { createCanvas, loadImage } = require("canvas"); // For image generation
 const crypto = require("crypto");          // For unique ephemeral keys
@@ -203,9 +204,9 @@ const commands = [
         .setDescription("First 3+ letters to search for the rider")
         .setRequired(false)
     )
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages)
+    .setDMPermission(false),
     
-
   // NEW: get_zwiftid (for retrieving a user's linked ZwiftID)
   new SlashCommandBuilder()
     .setName("get_zwiftid")

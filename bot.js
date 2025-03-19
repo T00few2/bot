@@ -12,7 +12,7 @@ const {
   ButtonBuilder,
   ButtonStyle
 } = require("discord.js");
-const { createCanvas } = require("canvas"); // For image generation
+const { createCanvas, loadImage } = require("canvas"); // For image generation
 const crypto = require("crypto");          // For unique ephemeral keys
 require("dotenv").config();
 const admin = require("firebase-admin");
@@ -209,39 +209,92 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN)
 
 // 7️⃣ Single-Rider Stats (13-row layout)
 
+function roundRect(ctx, x, y, width, height, radius) {
+    if (width < 2 * radius) radius = width / 2;
+    if (height < 2 * radius) radius = height / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, radius);
+    ctx.arcTo(x + width, y + height, x, y + height, radius);
+    ctx.arcTo(x, y + height, x, y, radius);
+    ctx.arcTo(x, y, x + width, y, radius);
+    ctx.closePath();
+    return ctx;
+  }
+
 async function generateSingleRiderStatsImage(rider) {
-  // same logic from your snippet
+  // Layout settings
   const rowCount = 13;
   const rowHeight = 30;
-  const topMargin = 80;
-  const leftMargin = 20;
-  const height = topMargin + (rowCount * rowHeight) + 80;
-  const width = 600;
+  const topMargin = 150;
+  const leftMargin = 50;
+  const width = 450;
+  const height = topMargin + rowCount * rowHeight + 40;
 
+  // Create the canvas and context
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#ffffff";
+  roundRect(ctx, 0, 0, canvas.width, canvas.height, 30);
+  ctx.clip();
+
+  // Draw background color
+  ctx.fillStyle = "#FF6719";
   ctx.fillRect(0, 0, width, height);
+  // Set global alpha to 0.5 for 50% opacity
+  ctx.globalAlpha = 0.1;
 
-  ctx.fillStyle = "#000000";
-  ctx.font = "bold 24px Arial";
-  ctx.fillText("Rider Stats", 40, 40);
+  
 
-  ctx.font = "bold 16px Arial";
+  // Load and draw an image (ensure 'zwifters.png' exists in the same directory)
+  try {
+    const image = await loadImage("zwifters.png");
+    // Draw the image at (0,0). You may adjust the size/position if needed.
+    ctx.drawImage(image, width * 0.1, topMargin, width*0.8,width*0.8);
+  } catch (err) {
+    console.error("Failed to load image:", err);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Draw a horizontal line under the title
+  ctx.beginPath();
+  ctx.moveTo(leftMargin, 90);
+  ctx.lineTo(width - leftMargin, 90);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.stroke();
+
+  // Title text
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 30px Arial";
+  ctx.fillText("Rider Stats 🧮", leftMargin, 70);
+
+  // Row labels
+  ctx.font = "bold 22px Arial";
   const labels = [
-    "Name","Pace Group","vELO Category","Phenotype","FTP",
-    "30s","1m","5m","20m","Finishes","Wins","Podiums","DNFs"
+    "Name",
+    "Pace Group",
+    "vELO Category",
+    "Phenotype",
+    "FTP",
+    "30s",
+    "1m",
+    "5m",
+    "20m",
+    "🏁 Finishes",
+    "🏆 Wins",
+    "🏅 Podiums",
+    "😖 DNFs"
   ];
 
   labels.forEach((label, i) => {
-    ctx.fillText(label, leftMargin, topMargin + (i * rowHeight));
+    ctx.fillText(label, leftMargin, topMargin + i * rowHeight);
   });
 
+  // Values for the sample rider
+  ctx.font = "bold 16px Arial";
   let yOffset = topMargin;
-  const xOffset = leftMargin + 150;
-  ctx.font = "16px Arial";
-
+  const xOffset = leftMargin + 180;
   ctx.fillText(rider.name, xOffset, yOffset);           yOffset += rowHeight;
   ctx.fillText(rider.zpCategory, xOffset, yOffset);    yOffset += rowHeight;
   const veloCat = `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`;

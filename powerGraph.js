@@ -73,7 +73,7 @@ async function generatePowerLineGraph(input) {
   riders.forEach(rider => {
     const riderMax = Math.max(
       rider.power.w5,
-      rider.power.w10,
+      rider.power.w15,
       rider.power.w30,
       rider.power.w60,
       rider.power.w300,
@@ -99,7 +99,7 @@ async function generatePowerLineGraph(input) {
   riders.forEach((rider, index) => {
     const powerValues = [
       rider.power.w5,
-      rider.power.w10,
+      rider.power.w15,
       rider.power.w30,
       rider.power.w60,
       rider.power.w300,

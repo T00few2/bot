@@ -18,6 +18,9 @@ const crypto = require("crypto");          // For unique ephemeral keys
 require("dotenv").config();
 const admin = require("firebase-admin");
 
+// Import the graph function from powerGraph.js
+const { generatePowerLineGraph } = require("./powerGraph");
+
 // 1️⃣ Fake Web Server (to keep Render awake)
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running!"));
@@ -204,8 +207,7 @@ const commands = [
         .setDescription("First 3+ letters to search for the rider")
         .setRequired(false)
     )
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages)
-    .setDMPermission(false),
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
     
   // NEW: get_zwiftid (for retrieving a user's linked ZwiftID)
   new SlashCommandBuilder()
@@ -693,10 +695,12 @@ client.on("interactionCreate", async interaction => {
           return;
         }
         const imageBuffer = await generateSingleRiderStatsImage(rider);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
+        const graphBuffer = await generatePowerLineGraph(rider);
+        const attachment1 = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
+        const attachment2 = new AttachmentBuilder(graphBuffer, { name: "power_graph.png" });
         const zwiftPowerLink = `[${rider.name}](<https://www.zwiftpower.com/profile.php?z=${rider.riderId}>)`;
         const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n`;
-        await ephemeralReplyWithPublish(interaction, content, [attachment]);
+        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2]);
       } catch (error) {
         console.error("❌ rider_stats Error:", error);
         await interaction.editReply({ content: "⚠️ Error fetching or generating rider stats." });
@@ -748,9 +752,11 @@ client.on("interactionCreate", async interaction => {
           .map(r => `[${r.name}](<https://www.zwiftpower.com/profile.php?z=${r.riderId}>)`)
           .join(" | ");
         const imageBuffer = await generateTeamStatsImage(ridersFound);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+        const graphBuffer = await generatePowerLineGraph(ridersFound);
+        const attachment1 = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
+        const attachment2 = new AttachmentBuilder(graphBuffer, { name: "power_graph.png" });
         const content = `ZwiftPower Profiles: ${zPLinks}\n\n`;
-        await ephemeralReplyWithPublish(interaction, content, [attachment]);
+        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2]);
       } catch (error) {
         console.error("❌ team_stats Error:", error);
         await interaction.editReply({ content: "⚠️ Error generating team stats comparison." });

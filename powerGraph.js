@@ -223,7 +223,7 @@ async function generatePowerLineGraph2(input) {
     );
     if (riderMax > dataMax) dataMax = riderMax;
   });
-  const yMax = Math.ceil(dataMax / 100) * 100;
+  const yMax = Math.ceil(dataMax);
   for (let i = 0; i <= numYLabels; i++) {
     const yValue = (yMax * i) / numYLabels;
     const y = height - margin - (i / numYLabels) * graphHeight;

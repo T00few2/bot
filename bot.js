@@ -19,7 +19,7 @@ require("dotenv").config();
 const admin = require("firebase-admin");
 
 // Import the graph function from powerGraph.js
-const { generatePowerLineGraph } = require("./powerGraph");
+const { generatePowerLineGraph, generatePowerLineGraph2 } = require("./powerGraph");
 
 // 1️⃣ Fake Web Server (to keep Render awake)
 const app = express();
@@ -696,11 +696,13 @@ client.on("interactionCreate", async interaction => {
         }
         const imageBuffer = await generateSingleRiderStatsImage(rider);
         const graphBuffer = await generatePowerLineGraph(rider);
+        const graphBuffer2 = await generatePowerLineGraph2(rider);
         const attachment1 = new AttachmentBuilder(imageBuffer, { name: "rider_stats.png" });
         const attachment2 = new AttachmentBuilder(graphBuffer, { name: "power_graph.png" });
+        const attachment3 = new AttachmentBuilder(graphBuffer2, { name: "power_graph2.png" });
         const zwiftPowerLink = `[${rider.name}](<https://www.zwiftpower.com/profile.php?z=${rider.riderId}>)`;
         const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n`;
-        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2]);
+        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
       } catch (error) {
         console.error("❌ rider_stats Error:", error);
         await interaction.editReply({ content: "⚠️ Error fetching or generating rider stats." });

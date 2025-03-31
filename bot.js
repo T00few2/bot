@@ -755,10 +755,12 @@ client.on("interactionCreate", async interaction => {
           .join(" | ");
         const imageBuffer = await generateTeamStatsImage(ridersFound);
         const graphBuffer = await generatePowerLineGraph(ridersFound);
+        const graphBuffer2 = await generatePowerLineGraph2(ridersFound);
         const attachment1 = new AttachmentBuilder(imageBuffer, { name: "team_stats.png" });
         const attachment2 = new AttachmentBuilder(graphBuffer, { name: "power_graph.png" });
+        const attachment3 = new AttachmentBuilder(graphBuffer2, { name: "power_graph2.png" });
         const content = `ZwiftPower Profiles: ${zPLinks}\n\n`;
-        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2]);
+        await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
       } catch (error) {
         console.error("❌ team_stats Error:", error);
         await interaction.editReply({ content: "⚠️ Error generating team stats comparison." });

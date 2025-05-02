@@ -218,6 +218,16 @@ const commands = [
         .setName("discorduser")
         .setDescription("The Discord user to query")
         .setRequired(true)
+    ),
+  // event_results
+  new SlashCommandBuilder()
+    .setName("event_results")
+    .setDescription("Get team results from events matching a search string")
+    .addStringOption(option =>
+      option
+        .setName("search")
+        .setDescription("Search string to match in event titles")
+        .setRequired(true)
     )
 ].map(cmd => cmd.toJSON());
 
@@ -817,6 +827,74 @@ client.on("interactionCreate", async interaction => {
       } catch (error) {
         console.error("❌ browse_riders Error:", error);
         await interaction.editReply({ content: "⚠️ Error fetching rider list." });
+      }
+    }
+    // event_results
+    else if (commandName === "event_results") {
+      try {
+        const searchTerm = interaction.options.getString("search");
+        if (!searchTerm || searchTerm.length < 3) {
+          await ephemeralReplyWithPublish(interaction, "❌ Please provide at least 3 letters for the search string.");
+          return;
+        }
+
+        const response = await axios.get(`https://zwiftpower-733125196297.us-central1.run.app/filter_events/11939?title=${encodeURIComponent(searchTerm)}`);
+        const data = response.data;
+
+        if (!data.filtered_events || Object.keys(data.filtered_events).length === 0) {
+          await ephemeralReplyWithPublish(interaction, `❌ No events found matching "${searchTerm}".`);
+          return;
+        }
+
+        let content = `# Event Results for "${searchTerm}"\n\n`;
+        
+        // Sort events by date
+        const sortedEvents = Object.entries(data.filtered_events)
+          .sort(([, a], [, b]) => new Date(a.event_info.date) - new Date(b.event_info.date));
+
+        for (const [eventId, event] of sortedEvents) {
+          content += `## ${event.event_info.title}\n`;
+          content += `📅 ${event.event_info.date}\n\n`;
+          
+          // Create table header
+          content += "| Rider | Cat | Pos | Time | 1m | 5m | 20m |\n";
+          content += "|-------|-----|-----|------|-----|-----|------|\n";
+          
+          // Sort riders by category and position
+          const sortedRiders = event.riders.sort((a, b) => {
+            if (a.category !== b.category) return a.category.localeCompare(b.category);
+            return a.position_in_cat - b.position_in_cat;
+          });
+
+          // Add rider rows
+          for (const rider of sortedRiders) {
+            const name = rider.name.replace(/\[.*?\]/g, '').trim(); // Remove team tags
+            content += `| ${name} | ${rider.category} | ${rider.position_in_cat} | ${rider.time} | ${rider["1m wkg"]} | ${rider["5m wkg"]} | ${rider["20m wkg"]} |\n`;
+          }
+          
+          content += "\n";
+        }
+
+        // Split content if it's too long (Discord has a 2000 character limit)
+        const chunks = [];
+        while (content.length > 0) {
+          if (content.length <= 1900) {
+            chunks.push(content);
+            break;
+          }
+          const splitIndex = content.lastIndexOf('\n', 1900);
+          chunks.push(content.substring(0, splitIndex));
+          content = content.substring(splitIndex + 1);
+        }
+
+        // Send each chunk as a separate message
+        for (const chunk of chunks) {
+          await ephemeralReplyWithPublish(interaction, chunk);
+        }
+
+      } catch (error) {
+        console.error("❌ event_results Error:", error);
+        await interaction.editReply({ content: "⚠️ Error fetching event results." });
       }
     }
   } catch (error) {

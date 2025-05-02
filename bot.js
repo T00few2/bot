@@ -856,9 +856,10 @@ client.on("interactionCreate", async interaction => {
           content += `## ${event.event_info.title}\n`;
           content += `📅 ${event.event_info.date}\n\n`;
           
-          // Create table header with alignment
-          content += "| Rider | Cat | Pos | Time | 1m | 5m | 20m |\n";
-          content += "|:------|:---:|:---:|:----:|:--:|:--:|:---:|\n";
+          // Create table header
+          content += "```\n";  // Start code block for monospace font
+          content += "Rider                Cat  Pos Time         1m    5m   20m\n";
+          content += "──────────────────────────────────────────────────────────\n";
           
           // Sort riders by category and position
           const sortedRiders = event.riders.sort((a, b) => {
@@ -866,14 +867,12 @@ client.on("interactionCreate", async interaction => {
             return a.position_in_cat - b.position_in_cat;
           });
 
-          // Add rider rows with proper spacing
+          // Add rider rows with fixed-width spacing
           for (const rider of sortedRiders) {
             const name = rider.name.replace(/\[.*?\]/g, '').trim(); // Remove team tags
-            const time = rider.time.padStart(12); // Ensure time is consistently 12 chars wide
-            content += `| ${name.padEnd(20)} | ${rider.category.padStart(3)} | ${rider.position_in_cat.toString().padStart(3)} | ${time} | ${rider["1m wkg"].padStart(4)} | ${rider["5m wkg"].padStart(4)} | ${rider["20m wkg"].padStart(4)} |\n`;
+            content += `${name.padEnd(20)} ${rider.category.padStart(3)} ${rider.position_in_cat.toString().padStart(3)} ${rider.time} ${rider["1m wkg"].padStart(4)} ${rider["5m wkg"].padStart(4)} ${rider["20m wkg"].padStart(4)}\n`;
           }
-          
-          content += "\n";
+          content += "```\n\n";  // End code block
         }
 
         // Split content if it's too long (Discord has a 2000 character limit)

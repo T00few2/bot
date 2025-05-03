@@ -421,6 +421,103 @@ async function generateTeamStatsImage(ridersArray) {
   return canvas.toBuffer();
 }
 
+async function generateEventResultsImage(events) {
+  const rowHeight = 30;
+  const topMargin = 150;
+  const leftMargin = 50;
+  const width = 800;
+  const height = topMargin + (Object.values(events).length * 300); // Approximate height based on number of events
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  roundRect(ctx, 0, 0, canvas.width, canvas.height, 30);
+  ctx.clip();
+
+  // Background
+  ctx.fillStyle = "#FF6719";
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 0.1;
+  try {
+    const image = await loadImage("zwifters.png");
+    ctx.drawImage(image, width * 0.1, topMargin, width * 0.8, width * 0.8);
+  } catch (err) {
+    console.error("Failed to load image:", err);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Title text
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 30px Arial";
+  ctx.fillText("Event Results", leftMargin, 70);
+
+  // Horizontal line under title
+  ctx.beginPath();
+  ctx.moveTo(leftMargin, 90);
+  ctx.lineTo(width - leftMargin, 90);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.stroke();
+
+  let yOffset = topMargin;
+
+  // Sort events by date
+  const sortedEvents = Object.entries(events)
+    .sort(([, a], [, b]) => new Date(a.event_info.date) - new Date(b.event_info.date));
+
+  for (const [eventId, event] of sortedEvents) {
+    // Event title
+    ctx.font = "bold 24px Arial";
+    ctx.fillText(event.event_info.title, leftMargin, yOffset);
+    yOffset += 40;
+
+    // Event date
+    ctx.font = "20px Arial";
+    ctx.fillText(event.event_info.date, leftMargin, yOffset);
+    yOffset += 40;
+
+    // Column headers
+    ctx.font = "bold 18px Arial";
+    const headers = ["Rider", "Cat", "Pos", "Time", "1m", "5m", "20m"];
+    const colWidths = [200, 50, 50, 100, 60, 60, 60];
+    let xOffset = leftMargin;
+    headers.forEach((header, i) => {
+      ctx.fillText(header, xOffset, yOffset);
+      xOffset += colWidths[i];
+    });
+    yOffset += 30;
+
+    // Sort riders by category and position
+    const sortedRiders = event.riders.sort((a, b) => {
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return a.position_in_cat - b.position_in_cat;
+    });
+
+    // Rider rows
+    ctx.font = "16px Arial";
+    for (const rider of sortedRiders) {
+      xOffset = leftMargin;
+      const name = rider.name.replace(/\[.*?\]/g, '').trim();
+      ctx.fillText(name, xOffset, yOffset);
+      xOffset += colWidths[0];
+      ctx.fillText(rider.category, xOffset, yOffset);
+      xOffset += colWidths[1];
+      ctx.fillText(rider.position_in_cat.toString(), xOffset, yOffset);
+      xOffset += colWidths[2];
+      ctx.fillText(rider.time, xOffset, yOffset);
+      xOffset += colWidths[3];
+      ctx.fillText(rider["1m wkg"], xOffset, yOffset);
+      xOffset += colWidths[4];
+      ctx.fillText(rider["5m wkg"], xOffset, yOffset);
+      xOffset += colWidths[5];
+      ctx.fillText(rider["20m wkg"], xOffset, yOffset);
+      yOffset += 30;
+    }
+    yOffset += 40; // Add space between events
+  }
+
+  return canvas.toBuffer();
+}
+
 // 9️⃣ Interaction Handling
 client.on("interactionCreate", async interaction => {
   try {
@@ -846,51 +943,10 @@ client.on("interactionCreate", async interaction => {
           return;
         }
 
-        let content = `# Event Results for "${searchTerm}"\n\n`;
+        const imageBuffer = await generateEventResultsImage(data.filtered_events);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: "event_results.png" });
         
-        // Sort events by date
-        const sortedEvents = Object.entries(data.filtered_events)
-          .sort(([, a], [, b]) => new Date(a.event_info.date) - new Date(b.event_info.date));
-
-        for (const [eventId, event] of sortedEvents) {
-          content += `## ${event.event_info.title}\n`;
-          content += `📅 ${event.event_info.date}\n\n`;
-          
-          // Create table header
-          content += "```\n";  // Start code block for monospace font
-          content += "Rider                Cat  Pos Time         1m    5m   20m\n";
-          content += "──────────────────────────────────────────────────────────\n";
-          
-          // Sort riders by category and position
-          const sortedRiders = event.riders.sort((a, b) => {
-            if (a.category !== b.category) return a.category.localeCompare(b.category);
-            return a.position_in_cat - b.position_in_cat;
-          });
-
-          // Add rider rows with fixed-width spacing
-          for (const rider of sortedRiders) {
-            const name = rider.name.replace(/\[.*?\]/g, '').trim(); // Remove team tags
-            content += `${name.padEnd(20)} ${rider.category.padStart(3)} ${rider.position_in_cat.toString().padStart(3)} ${rider.time} ${rider["1m wkg"].padStart(4)} ${rider["5m wkg"].padStart(4)} ${rider["20m wkg"].padStart(4)}\n`;
-          }
-          content += "```\n\n";  // End code block
-        }
-
-        // Split content if it's too long (Discord has a 2000 character limit)
-        const chunks = [];
-        while (content.length > 0) {
-          if (content.length <= 1900) {
-            chunks.push(content);
-            break;
-          }
-          const splitIndex = content.lastIndexOf('\n', 1900);
-          chunks.push(content.substring(0, splitIndex));
-          content = content.substring(splitIndex + 1);
-        }
-
-        // Send each chunk as a separate message
-        for (const chunk of chunks) {
-          await ephemeralReplyWithPublish(interaction, chunk);
-        }
+        await ephemeralReplyWithPublish(interaction, `Event Results for "${searchTerm}"`, [attachment]);
 
       } catch (error) {
         console.error("❌ event_results Error:", error);

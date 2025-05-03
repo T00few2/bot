@@ -425,7 +425,7 @@ async function generateEventResultsImage(events) {
   const rowHeight = 30;
   const topMargin = 150;
   const leftMargin = 50;
-  const width = 800;
+  const width = 900;
   const height = topMargin + (Object.values(events).length * 300); // Approximate height based on number of events
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -478,12 +478,33 @@ async function generateEventResultsImage(events) {
     // Column headers
     ctx.font = "bold 18px Arial";
     const headers = ["Rider", "Cat", "Pos", "Time", "1m", "5m", "20m"];
-    const colWidths = [200, 50, 50, 100, 60, 60, 60];
+    // Rider, Cat, Pos, Time, 1m, 5m, 20m
+    const colWidths = [200, 50, 50, 140, 70, 60, 60];
     let xOffset = leftMargin;
-    headers.forEach((header, i) => {
-      ctx.fillText(header, xOffset, yOffset);
-      xOffset += colWidths[i];
-    });
+    // Rider
+    ctx.textAlign = "left";
+    ctx.fillText(headers[0], xOffset, yOffset);
+    xOffset += colWidths[0];
+    // Cat
+    ctx.textAlign = "left";
+    ctx.fillText(headers[1], xOffset, yOffset);
+    xOffset += colWidths[1];
+    // Pos (right aligned)
+    ctx.textAlign = "right";
+    ctx.fillText(headers[2], xOffset + colWidths[2] - 10, yOffset); // -10 for padding
+    xOffset += colWidths[2];
+    // Time (centered)
+    ctx.textAlign = "center";
+    const timeColCenter = xOffset + colWidths[3] / 2;
+    ctx.fillText(headers[3], timeColCenter, yOffset);
+    xOffset += colWidths[3];
+    // 1m, 5m, 20m
+    ctx.textAlign = "left";
+    ctx.fillText(headers[4], xOffset + 20, yOffset); // extra space after Time
+    xOffset += colWidths[4];
+    ctx.fillText(headers[5], xOffset, yOffset);
+    xOffset += colWidths[5];
+    ctx.fillText(headers[6], xOffset, yOffset);
     yOffset += 30;
 
     // Sort riders by category and position
@@ -496,16 +517,21 @@ async function generateEventResultsImage(events) {
     ctx.font = "16px Arial";
     for (const rider of sortedRiders) {
       xOffset = leftMargin;
+      ctx.textAlign = "left";
       const name = rider.name.replace(/\[.*?\]/g, '').trim();
       ctx.fillText(name, xOffset, yOffset);
       xOffset += colWidths[0];
+      ctx.textAlign = "left";
       ctx.fillText(rider.category, xOffset, yOffset);
       xOffset += colWidths[1];
-      ctx.fillText(rider.position_in_cat.toString(), xOffset, yOffset);
+      ctx.textAlign = "right";
+      ctx.fillText(rider.position_in_cat.toString(), xOffset + colWidths[2] - 10, yOffset);
       xOffset += colWidths[2];
-      ctx.fillText(rider.time, xOffset, yOffset);
+      ctx.textAlign = "center";
+      ctx.fillText(rider.time, xOffset + colWidths[3] / 2, yOffset);
       xOffset += colWidths[3];
-      ctx.fillText(rider["1m wkg"], xOffset, yOffset);
+      ctx.textAlign = "left";
+      ctx.fillText(rider["1m wkg"], xOffset + 20, yOffset);
       xOffset += colWidths[4];
       ctx.fillText(rider["5m wkg"], xOffset, yOffset);
       xOffset += colWidths[5];

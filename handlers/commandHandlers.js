@@ -350,18 +350,29 @@ async function handleTestWelcome(interaction) {
     // Add embed if configured
     if (welcomeMessage.embed) {
       const embed = new EmbedBuilder()
-        .setTitle(processMessageContent(welcomeMessage.embed.title || "", variables))
-        .setDescription(processMessageContent(welcomeMessage.embed.description || "", variables))
         .setColor(welcomeMessage.embed.color || 0x0099FF);
+
+      // Only set title if it's not empty after processing
+      const embedTitle = processMessageContent(welcomeMessage.embed.title || "", variables);
+      if (embedTitle && embedTitle.trim().length > 0) {
+        embed.setTitle(embedTitle);
+      }
+
+      // Only set description if it's not empty after processing
+      const embedDescription = processMessageContent(welcomeMessage.embed.description || "", variables);
+      if (embedDescription && embedDescription.trim().length > 0) {
+        embed.setDescription(embedDescription);
+      }
 
       if (welcomeMessage.embed.thumbnail) {
         embed.setThumbnail(targetUser.displayAvatarURL());
       }
 
       if (welcomeMessage.embed.footer) {
-        embed.setFooter({ 
-          text: processMessageContent(welcomeMessage.embed.footer, variables) 
-        });
+        const footerText = processMessageContent(welcomeMessage.embed.footer, variables);
+        if (footerText && footerText.trim().length > 0) {
+          embed.setFooter({ text: footerText });
+        }
       }
 
       messageOptions.embeds = [embed];

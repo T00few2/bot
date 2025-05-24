@@ -3,12 +3,19 @@ const config = require("./config/config");
 const commands = require("./commands/slashCommands");
 const { setupKeepAliveServer } = require("./services/server");
 const { handleInteractions } = require("./handlers/interactionHandler");
+const { handleGuildMemberAdd } = require("./handlers/memberHandler");
+const { startScheduler } = require("./services/scheduler");
 
 // Setup keep-alive server
 setupKeepAliveServer();
 
 // Create Discord Bot Client
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ 
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers  // Added for welcome messages
+  ] 
+});
 
 // Register Slash Commands
 const rest = new REST({ version: "10" }).setToken(config.discord.token);
@@ -29,9 +36,15 @@ const rest = new REST({ version: "10" }).setToken(config.discord.token);
 // Handle all interactions
 client.on("interactionCreate", handleInteractions);
 
+// Handle new members
+client.on("guildMemberAdd", handleGuildMemberAdd);
+
 // Bot ready event
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+  
+  // Start the message scheduler
+  startScheduler(client);
 });
 
 // Start the bot

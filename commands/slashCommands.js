@@ -142,7 +142,19 @@ const commands = [
         .setName("search")
         .setDescription("Search string to match in event titles")
         .setRequired(true)
-    )
+    ),
+  {
+    name: "test_welcome",
+    description: "Test the welcome message system (admin only)",
+    options: [
+      {
+        type: 6,
+        name: "target_user",
+        description: "User to simulate welcome message for (optional, defaults to yourself)",
+        required: false
+      }
+    ]
+  }
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

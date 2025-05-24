@@ -4,6 +4,10 @@ const { generatePowerLineGraph, generatePowerLineGraph2 } = require("../utils/po
 const { generateSingleRiderStatsImage, generateTeamStatsImage, generateEventResultsImage } = require("../utils/imageGenerator");
 const { getUserZwiftId, linkUserZwiftId, searchRidersByName, getTodaysClubStats } = require("../services/firebase");
 const { ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
+const { generatePowerGraph } = require("../utils/powerGraph");
+const { getWelcomeMessage, processMessageContent } = require("../services/contentApi");
+const { EmbedBuilder } = require("discord.js");
+const config = require("../config/config");
 
 async function handleMyZwiftId(interaction) {
   const zwiftID = interaction.options.getString("zwiftid");
@@ -315,6 +319,81 @@ async function handleWhoAmI(interaction) {
   }
 }
 
+async function handleTestWelcome(interaction) {
+  try {
+    // Check if user has admin permissions (optional - you can remove this if you want anyone to test)
+    if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+      await interaction.editReply({ content: "❌ This command is for administrators only." });
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("target_user") || interaction.user;
+    
+    // Get welcome message from API
+    const welcomeMessage = await getWelcomeMessage();
+    if (!welcomeMessage) {
+      await interaction.editReply({ content: "❌ No welcome message configured. Create one via the web interface first." });
+      return;
+    }
+
+    // Process message content with member variables
+    const variables = {
+      username: targetUser.username,
+      displayName: targetUser.displayName || targetUser.username,
+      server_name: interaction.guild.name,
+      member_count: interaction.guild.memberCount,
+      mention: `<@${targetUser.id}>`
+    };
+
+    const content = processMessageContent(welcomeMessage.content, variables);
+
+    // Build message object
+    const messageOptions = { content };
+
+    // Add embed if configured
+    if (welcomeMessage.embed) {
+      const embed = new EmbedBuilder()
+        .setTitle(processMessageContent(welcomeMessage.embed.title || "", variables))
+        .setDescription(processMessageContent(welcomeMessage.embed.description || "", variables))
+        .setColor(welcomeMessage.embed.color || 0x0099FF);
+
+      if (welcomeMessage.embed.thumbnail) {
+        embed.setThumbnail(targetUser.displayAvatarURL());
+      }
+
+      if (welcomeMessage.embed.footer) {
+        embed.setFooter({ 
+          text: processMessageContent(welcomeMessage.embed.footer, variables) 
+        });
+      }
+
+      messageOptions.embeds = [embed];
+    }
+
+    // Determine channel to send to
+    const channelId = config.discord.welcomeChannelId || interaction.guild.systemChannelId || interaction.channelId;
+    const channel = interaction.guild.channels.cache.get(channelId);
+    
+    if (!channel) {
+      await interaction.editReply({ 
+        content: "❌ No welcome channel configured. Set DISCORD_WELCOME_CHANNEL_ID in your environment variables." 
+      });
+      return;
+    }
+
+    // Send test welcome message
+    await channel.send(messageOptions);
+    
+    await interaction.editReply({ 
+      content: `✅ Test welcome message sent to ${channel} for ${targetUser.username}!\n\n**Preview:**\n${content}` 
+    });
+
+  } catch (error) {
+    console.error("❌ test_welcome Error:", error);
+    await interaction.editReply({ content: "⚠️ Error testing welcome message: " + error.message });
+  }
+}
+
 module.exports = {
   handleMyZwiftId,
   handleSetZwiftId,
@@ -324,4 +403,5 @@ module.exports = {
   handleBrowseRiders,
   handleEventResults,
   handleWhoAmI,
+  handleTestWelcome,
 }; 

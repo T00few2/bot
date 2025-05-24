@@ -10,6 +10,7 @@ const {
   handleBrowseRiders,
   handleEventResults,
   handleWhoAmI,
+  handleTestWelcome,
 } = require("./commandHandlers");
 
 async function handleSelectMenus(interaction) {
@@ -111,6 +112,7 @@ async function handleInteractions(interaction) {
       "team_stats": handleTeamStats,
       "browse_riders": handleBrowseRiders,
       "event_results": handleEventResults,
+      "test_welcome": handleTestWelcome,
     };
 
     const handler = commandHandlers[commandName];

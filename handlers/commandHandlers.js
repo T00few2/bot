@@ -54,8 +54,7 @@ async function handleMyZwiftId(interaction) {
 
     await interaction.editReply({
       content: `**Found ${matchingRiders.length} riders** matching "${searchTerm}". Select your name:`,
-      components: [row],
-      ephemeral: true
+      components: [row]
     });
     return;
   }
@@ -107,8 +106,7 @@ async function handleSetZwiftId(interaction) {
 
     await interaction.editReply({
       content: `**Found ${matchingRiders.length} riders** matching "${searchTerm}" for ${targetUser.username}. Select one:`,
-      components: [row],
-      ephemeral: true
+      components: [row]
     });
     return;
   }
@@ -267,8 +265,7 @@ async function handleBrowseRiders(interaction) {
 
     await interaction.editReply({
       content: `**Found ${matchingRiders.length} riders** starting with "${searchTerm}". Select one:`,
-      components: [row],
-      ephemeral: true
+      components: [row]
     });
   } catch (error) {
     console.error("❌ browse_riders Error:", error);
@@ -321,13 +318,13 @@ async function handleWhoAmI(interaction) {
 
 async function handleTestWelcome(interaction) {
   try {
-    // Check if user has admin permissions (optional - you can remove this if you want anyone to test)
+    const targetUser = interaction.options.getUser("target_user") || interaction.user;
+    
+    // Check if user has admin permissions (moved after defer to prevent timeout)
     if (!interaction.member.permissions.has('ADMINISTRATOR')) {
       await interaction.editReply({ content: "❌ This command is for administrators only." });
       return;
     }
-
-    const targetUser = interaction.options.getUser("target_user") || interaction.user;
     
     // Get welcome message from API
     const welcomeMessage = await getWelcomeMessage();

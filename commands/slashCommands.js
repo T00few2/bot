@@ -122,7 +122,6 @@ const commands = [
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
-    
   // get_zwiftid (for retrieving a user's linked ZwiftID)
   new SlashCommandBuilder()
     .setName("get_zwiftid")
@@ -143,18 +142,17 @@ const commands = [
         .setDescription("Search string to match in event titles")
         .setRequired(true)
     ),
-  {
-    name: "test_welcome",
-    description: "Test the welcome message system (admin only)",
-    options: [
-      {
-        type: 6,
-        name: "target_user",
-        description: "User to simulate welcome message for (optional, defaults to yourself)",
-        required: false
-      }
-    ]
-  }
+  // test_welcome (admin only)
+  new SlashCommandBuilder()
+    .setName("test_welcome")
+    .setDescription("Test the welcome message system (admin only)")
+    .addUserOption(option =>
+      option
+        .setName("target_user")
+        .setDescription("User to simulate welcome message for (optional, defaults to yourself)")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

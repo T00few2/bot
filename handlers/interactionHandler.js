@@ -1,4 +1,4 @@
-const { ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { ActionRowBuilder, StringSelectMenuBuilder, InteractionResponseType, MessageFlags } = require("discord.js");
 const { linkUserZwiftId, getTodaysClubStats } = require("../services/firebase");
 const { handlePublishButton, ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
 const {
@@ -12,6 +12,9 @@ const {
   handleWhoAmI,
   handleTestWelcome,
 } = require("./commandHandlers");
+const crypto = require("crypto");
+
+const HANDLER_ID = crypto.randomUUID().slice(0, 8); // Unique ID for this handler instance
 
 async function handleSelectMenus(interaction) {
   if (interaction.customId === "select_rider") {
@@ -85,6 +88,8 @@ async function handleSelectMenus(interaction) {
 
 async function handleInteractions(interaction) {
   try {
+    console.log(`🔍 [${HANDLER_ID}] Handling interaction: ${interaction.type} - ${interaction.isCommand() ? interaction.commandName : 'N/A'} (ID: ${interaction.id})`);
+    
     // Handle publish buttons
     if (interaction.isButton() && interaction.customId.startsWith("publish_")) {
       const uniqueId = interaction.customId.replace("publish_", "");
@@ -100,7 +105,34 @@ async function handleInteractions(interaction) {
 
     // Handle slash commands
     if (!interaction.isCommand()) return;
-    await interaction.deferReply({ ephemeral: true });
+    
+    console.log(`🔄 [${HANDLER_ID}] Interaction state before response: replied=${interaction.replied}, deferred=${interaction.deferred}`);
+    
+    // Add a small delay to see if this helps with timing
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Try immediate reply instead of defer to avoid timing issues
+    if (!interaction.replied && !interaction.deferred) {
+      console.log(`⏳ [${HANDLER_ID}] Attempting to reply to interaction ${interaction.id}`);
+      try {
+        await interaction.reply({ 
+          content: "⏳ Processing command...", 
+          flags: MessageFlags.Ephemeral 
+        });
+        console.log(`✅ [${HANDLER_ID}] Successfully replied to interaction`);
+      } catch (replyError) {
+        console.log(`❌ [${HANDLER_ID}] Failed to reply to interaction: ${replyError.message}`);
+        if (replyError.code === 40060) { // Already acknowledged
+          console.log(`🔄 [${HANDLER_ID}] Interaction was already acknowledged by another handler`);
+          return; // Exit gracefully
+        }
+        throw replyError; // Re-throw other errors
+      }
+    } else {
+      console.log(`⚠️ [${HANDLER_ID}] Interaction already acknowledged, skipping reply`);
+      return; // Exit if already handled
+    }
+    
     const commandName = interaction.commandName;
 
     const commandHandlers = {
@@ -123,9 +155,28 @@ async function handleInteractions(interaction) {
     }
 
   } catch (error) {
-    console.error("❌ Unexpected Error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: "⚠️ An unexpected error occurred!", ephemeral: true });
+    console.error(`❌ [${HANDLER_ID}] Unexpected Error:`, error);
+    try {
+      // Check current interaction state before trying to respond
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ 
+          content: "⚠️ An unexpected error occurred!", 
+          flags: MessageFlags.Ephemeral 
+        });
+      } else if (interaction.replied) {
+        // Already replied, edit the reply
+        await interaction.editReply({ content: "⚠️ An unexpected error occurred!" });
+      } else if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({ content: "⚠️ An unexpected error occurred!" });
+      } else {
+        // Fallback: try follow-up
+        await interaction.followUp({ 
+          content: "⚠️ An unexpected error occurred!", 
+          flags: MessageFlags.Ephemeral 
+        });
+      }
+    } catch (responseError) {
+      console.error(`❌ [${HANDLER_ID}] Could not respond to interaction:`, responseError);
     }
   }
 }

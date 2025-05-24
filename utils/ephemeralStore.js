@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js");
 
 /**
  * A global store for ephemeral results.
@@ -27,8 +27,7 @@ async function ephemeralReplyWithPublish(interaction, content, files = []) {
   await interaction.editReply({
     content,
     files,
-    components: [row],
-    ephemeral: true
+    components: [row]
   });
 }
 
@@ -40,7 +39,7 @@ async function handlePublishButton(interaction, uniqueId) {
   if (!stored) {
     await interaction.reply({ 
       content: "❌ Could not find the content to publish.", 
-      ephemeral: true 
+      flags: MessageFlags.Ephemeral 
     });
     return false;
   }

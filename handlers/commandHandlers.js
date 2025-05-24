@@ -352,30 +352,43 @@ async function handleTestWelcome(interaction) {
       const embed = new EmbedBuilder()
         .setColor(welcomeMessage.embed.color || 0x0099FF);
 
+      let hasContent = false;
+
       // Only set title if it's not empty after processing
       const embedTitle = processMessageContent(welcomeMessage.embed.title || "", variables);
       if (embedTitle && embedTitle.trim().length > 0) {
         embed.setTitle(embedTitle);
+        hasContent = true;
       }
 
       // Only set description if it's not empty after processing
       const embedDescription = processMessageContent(welcomeMessage.embed.description || "", variables);
       if (embedDescription && embedDescription.trim().length > 0) {
         embed.setDescription(embedDescription);
+        hasContent = true;
       }
 
       if (welcomeMessage.embed.thumbnail) {
         embed.setThumbnail(targetUser.displayAvatarURL());
+        hasContent = true;
       }
 
       if (welcomeMessage.embed.footer) {
         const footerText = processMessageContent(welcomeMessage.embed.footer, variables);
         if (footerText && footerText.trim().length > 0) {
           embed.setFooter({ text: footerText });
+          hasContent = true;
         }
       }
 
-      messageOptions.embeds = [embed];
+      // Only add embed if it has some content, and ensure it has at least a description
+      if (hasContent) {
+        // If embed has content but no description, add a minimal one
+        if (!embedDescription || embedDescription.trim().length === 0) {
+          embed.setDescription(`Welcome ${targetUser.username}!`);
+        }
+        messageOptions.embeds = [embed];
+      }
     }
 
     // Determine channel to send to

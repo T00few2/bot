@@ -152,6 +152,57 @@ const commands = [
         .setDescription("User to simulate welcome message for (optional, defaults to yourself)")
         .setRequired(false)
     )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+  
+  // Self-role management commands
+  new SlashCommandBuilder()
+    .setName("setup_roles")
+    .setDescription("Setup the self-role system for this server (admin only)")
+    .addChannelOption(option =>
+      option
+        .setName("channel")
+        .setDescription("Channel where the role selection panel will be posted")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("add_selfrole")
+    .setDescription("Add a role to the self-selection list (admin only)")
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to add to self-selection")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("description")
+        .setDescription("Description for this role (optional)")
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option
+        .setName("emoji")
+        .setDescription("Emoji for this role (optional)")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("remove_selfrole")
+    .setDescription("Remove a role from the self-selection list (admin only)")
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to remove from self-selection")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("roles_panel")
+    .setDescription("Create/update the role selection panel (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
 ].map(cmd => cmd.toJSON());
 

@@ -13,7 +13,7 @@ setupKeepAliveServer();
 const client = new Client({ 
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers  // Added for welcome messages
+    GatewayIntentBits.GuildMembers  // Added for welcome messages and role management
   ] 
 });
 

@@ -1,4 +1,5 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, InteractionResponseType, MessageFlags } = require("discord.js");
+const roleService = require("../services/roleService");
 const { linkUserZwiftId, getTodaysClubStats } = require("../services/firebase");
 const { handlePublishButton, ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
 const {
@@ -12,6 +13,12 @@ const {
   handleWhoAmI,
   handleTestWelcome,
 } = require("./commandHandlers");
+const {
+  handleSetupRoles,
+  handleAddSelfRole,
+  handleRemoveSelfRole,
+  handleRolesPanel,
+} = require("./roleHandlers");
 const crypto = require("crypto");
 
 const HANDLER_ID = crypto.randomUUID().slice(0, 8); // Unique ID for this handler instance
@@ -97,6 +104,29 @@ async function handleInteractions(interaction) {
       return;
     }
 
+    // Handle role toggle buttons
+    if (interaction.isButton() && interaction.customId.startsWith("role_toggle_")) {
+      const roleId = interaction.customId.replace("role_toggle_", "");
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        
+        const result = await roleService.toggleUserRole(
+          interaction.guild,
+          interaction.user.id,
+          roleId
+        );
+
+        const emoji = result.action === "added" ? "✅" : "❌";
+        const actionText = result.action === "added" ? "added" : "removed";
+        
+        await interaction.editReply(`${emoji} Successfully ${actionText} the **${result.roleName}** role!`);
+      } catch (error) {
+        console.error("Error handling role toggle:", error);
+        await interaction.editReply(`❌ Error: ${error.message}`);
+      }
+      return;
+    }
+
     // Handle select menus
     if (interaction.isStringSelectMenu()) {
       await handleSelectMenus(interaction);
@@ -145,6 +175,10 @@ async function handleInteractions(interaction) {
       "browse_riders": handleBrowseRiders,
       "event_results": handleEventResults,
       "test_welcome": handleTestWelcome,
+      "setup_roles": handleSetupRoles,
+      "add_selfrole": handleAddSelfRole,
+      "remove_selfrole": handleRemoveSelfRole,
+      "roles_panel": handleRolesPanel,
     };
 
     const handler = commandHandlers[commandName];

@@ -6,9 +6,18 @@ const { getDueScheduledMessages, markScheduledMessageSent, processMessageContent
  */
 async function checkScheduledMessages(client) {
   try {
+    console.log("🔍 Checking for scheduled messages...");
     const dueMessages = await getDueScheduledMessages();
     
+    console.log(`📋 Found ${dueMessages.length} due messages`);
+    
+    if (dueMessages.length === 0) {
+      console.log("✅ No scheduled messages due at this time");
+      return;
+    }
+    
     for (const scheduledMessage of dueMessages) {
+      console.log(`📤 Processing scheduled message: ${scheduledMessage.title} (ID: ${scheduledMessage.id})`);
       await sendScheduledMessage(client, scheduledMessage);
     }
   } catch (error) {
@@ -21,11 +30,15 @@ async function checkScheduledMessages(client) {
  */
 async function sendScheduledMessage(client, scheduledMessage) {
   try {
+    console.log(`🎯 Attempting to send message "${scheduledMessage.title}" to channel ${scheduledMessage.channel_id}`);
+    
     const channel = client.channels.cache.get(scheduledMessage.channel_id);
     if (!channel) {
       console.error(`❌ Channel ${scheduledMessage.channel_id} not found for scheduled message ${scheduledMessage.id}`);
       return;
     }
+
+    console.log(`✅ Found channel: #${channel.name} in ${channel.guild.name}`);
 
     // Process message content
     const variables = {
@@ -36,6 +49,7 @@ async function sendScheduledMessage(client, scheduledMessage) {
     };
 
     const content = processMessageContent(scheduledMessage.content, variables);
+    console.log(`📝 Processed message content: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`);
 
     // Build message object
     const messageOptions = { content };
@@ -54,18 +68,25 @@ async function sendScheduledMessage(client, scheduledMessage) {
       }
 
       messageOptions.embeds = [embed];
+      console.log(`🎨 Added embed to message`);
     }
 
     // Send the message
+    console.log(`🚀 Sending message to Discord...`);
     await channel.send(messageOptions);
+    console.log(`✅ Message sent successfully to #${channel.name}`);
     
     // Mark as sent
+    console.log(`📋 Marking message ${scheduledMessage.id} as sent...`);
     await markScheduledMessageSent(scheduledMessage.id);
+    console.log(`✅ Message ${scheduledMessage.id} marked as sent`);
     
-    console.log(`✅ Sent scheduled message: ${scheduledMessage.title}`);
+    console.log(`🎉 Completed scheduled message: ${scheduledMessage.title}`);
 
   } catch (error) {
-    console.error("❌ Error sending scheduled message:", error);
+    console.error(`❌ Error sending scheduled message "${scheduledMessage.title}":`, error);
+    console.error(`   Message ID: ${scheduledMessage.id}`);
+    console.error(`   Channel ID: ${scheduledMessage.channel_id}`);
   }
 }
 
@@ -73,6 +94,8 @@ async function sendScheduledMessage(client, scheduledMessage) {
  * Start the scheduler (runs every minute)
  */
 function startScheduler(client) {
+  console.log("🚀 Starting message scheduler...");
+  
   // Check immediately
   checkScheduledMessages(client);
   
@@ -81,7 +104,7 @@ function startScheduler(client) {
     checkScheduledMessages(client);
   }, 60000); // 1 minute
   
-  console.log("✅ Message scheduler started");
+  console.log("✅ Message scheduler started - checking every minute");
 }
 
 module.exports = {

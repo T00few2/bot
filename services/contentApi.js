@@ -29,12 +29,32 @@ async function getWelcomeMessage() {
  */
 async function getDueScheduledMessages() {
   try {
+    console.log(`🔄 API Call: Fetching due scheduled messages...`);
+    console.log(`   URL: ${API_BASE_URL}/api/schedules/due`);
+    
     const response = await axios.get(`${API_BASE_URL}/api/schedules/due`, {
       headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
+    
+    console.log(`✅ API Response: Received ${response.data.length} due messages`);
+    
+    if (response.data.length > 0) {
+      console.log(`📋 Due messages:`, response.data.map(msg => ({
+        id: msg.id,
+        title: msg.title,
+        channel_id: msg.channel_id,
+        next_run: msg.next_run,
+        last_sent: msg.last_sent
+      })));
+    }
+    
     return response.data;
   } catch (error) {
-    console.error("❌ Error fetching scheduled messages:", error);
+    console.error("❌ API Error fetching scheduled messages:", error.message);
+    if (error.response) {
+      console.error(`   Status: ${error.response.status}`);
+      console.error(`   Data:`, error.response.data);
+    }
     return [];
   }
 }
@@ -44,11 +64,23 @@ async function getDueScheduledMessages() {
  */
 async function markScheduledMessageSent(scheduleId) {
   try {
-    await axios.post(`${API_BASE_URL}/api/schedules/${scheduleId}/sent`, {}, {
+    console.log(`🔄 API Call: Marking schedule ${scheduleId} as sent...`);
+    console.log(`   URL: ${API_BASE_URL}/api/schedules/${scheduleId}/sent`);
+    
+    const response = await axios.post(`${API_BASE_URL}/api/schedules/${scheduleId}/sent`, {}, {
       headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
+    
+    console.log(`✅ API Response: Schedule ${scheduleId} marked as sent successfully`);
+    console.log(`   Response status: ${response.status}`);
+    console.log(`   Response data:`, response.data);
+    
   } catch (error) {
-    console.error("❌ Error marking message as sent:", error);
+    console.error(`❌ API Error marking schedule ${scheduleId} as sent:`, error.message);
+    if (error.response) {
+      console.error(`   Status: ${error.response.status}`);
+      console.error(`   Data:`, error.response.data);
+    }
   }
 }
 

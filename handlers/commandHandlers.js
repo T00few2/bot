@@ -391,22 +391,32 @@ async function handleTestWelcome(interaction) {
       }
     }
 
-    // Determine channel to send to
-    const channelId = config.discord.welcomeChannelId || interaction.guild.systemChannelId || interaction.channelId;
-    const channel = interaction.guild.channels.cache.get(channelId);
+    // Send test message to current channel (where command was executed)
+    const testChannel = interaction.channel;
     
-    if (!channel) {
+    if (!testChannel) {
       await interaction.editReply({ 
-        content: "❌ No welcome channel configured. Set DISCORD_WELCOME_CHANNEL_ID in your environment variables." 
+        content: "❌ Could not determine current channel for test message." 
       });
       return;
     }
 
-    // Send test welcome message
-    await channel.send(messageOptions);
+    // Add a header to distinguish this as a test message
+    const testMessageOptions = {
+      content: `🧪 **TEST WELCOME MESSAGE** (for ${targetUser.username})\n\n${content}`,
+      embeds: messageOptions.embeds
+    };
+
+    // Send test welcome message to current channel
+    await testChannel.send(testMessageOptions);
+    
+    // Get info about the real welcome channel for comparison
+    const realWelcomeChannelId = config.discord.welcomeChannelId || interaction.guild.systemChannelId;
+    const realWelcomeChannel = realWelcomeChannelId ? interaction.guild.channels.cache.get(realWelcomeChannelId) : null;
+    const welcomeChannelInfo = realWelcomeChannel ? `#${realWelcomeChannel.name}` : "system channel or first available channel";
     
     await interaction.editReply({ 
-      content: `✅ Test welcome message sent to ${channel} for ${targetUser.username}!\n\n**Preview:**\n${content}` 
+      content: `✅ Test welcome message sent to this channel!\n\n📍 **Note:** Real welcome messages will be sent to ${welcomeChannelInfo} when new members join.` 
     });
 
   } catch (error) {

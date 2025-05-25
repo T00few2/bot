@@ -7,12 +7,16 @@ const config = require("../config/config");
  */
 async function handleGuildMemberAdd(member) {
   try {
+    console.log(`🔔 NEW MEMBER EVENT TRIGGERED: ${member.user.username} (${member.user.id}) joined ${member.guild.name}`);
+    
     // Get welcome message from API
     const welcomeMessage = await getWelcomeMessage();
     if (!welcomeMessage) {
-      console.log("No welcome message configured");
+      console.log("❌ No welcome message configured");
       return;
     }
+
+    console.log(`✅ Welcome message found: ${welcomeMessage.title}`);
 
     // Process message content with member variables
     const variables = {
@@ -51,14 +55,18 @@ async function handleGuildMemberAdd(member) {
     // Send to welcome channel or general channel
     const channelId = config.discord.welcomeChannelId || member.guild.systemChannelId;
     if (!channelId) {
-      console.log("No welcome channel configured");
+      console.log("❌ No welcome channel configured - no welcomeChannelId or systemChannelId");
       return;
     }
+
+    console.log(`📍 Attempting to send welcome message to channel: ${channelId}`);
 
     const channel = member.guild.channels.cache.get(channelId);
     if (channel) {
       await channel.send(messageOptions);
-      console.log(`✅ Sent welcome message to ${member.user.username}`);
+      console.log(`✅ Successfully sent welcome message to ${member.user.username} in #${channel.name}`);
+    } else {
+      console.log(`❌ Could not find channel with ID: ${channelId}`);
     }
 
   } catch (error) {

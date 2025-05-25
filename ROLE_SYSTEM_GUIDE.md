@@ -1,6 +1,6 @@
 # Self-Role System Guide
 
-This Discord bot now includes a comprehensive self-role system that allows users to assign and remove roles themselves in a dedicated channel.
+The DZR Discord bot includes a comprehensive self-role system that allows users to assign and remove roles themselves in a dedicated channel.
 
 ## Features
 

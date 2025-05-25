@@ -203,7 +203,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName("roles_panel")
     .setDescription("Create/update the role selection panel (admin only)")
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("roles_help")
+    .setDescription("Show the self-role system guide and instructions")
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

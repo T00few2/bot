@@ -18,6 +18,7 @@ const {
   handleAddSelfRole,
   handleRemoveSelfRole,
   handleRolesPanel,
+  handleRolesHelp,
 } = require("./roleHandlers");
 const crypto = require("crypto");
 
@@ -179,6 +180,7 @@ async function handleInteractions(interaction) {
       "add_selfrole": handleAddSelfRole,
       "remove_selfrole": handleRemoveSelfRole,
       "roles_panel": handleRolesPanel,
+      "roles_help": handleRolesHelp,
     };
 
     const handler = commandHandlers[commandName];

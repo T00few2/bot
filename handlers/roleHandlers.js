@@ -1,4 +1,4 @@
-const { ChannelType } = require("discord.js");
+const { ChannelType, EmbedBuilder } = require("discord.js");
 const roleService = require("../services/roleService");
 
 async function handleSetupRoles(interaction) {
@@ -148,9 +148,95 @@ async function handleRolesPanel(interaction) {
   }
 }
 
+async function handleRolesHelp(interaction) {
+  try {
+    const embed = new EmbedBuilder()
+      .setTitle("🎭 Self-Role System Guide")
+      .setDescription("Learn how to use the self-role system!")
+      .setColor(0x5865F2)
+      .setThumbnail("https://cdn.discordapp.com/emojis/🎭.png")
+      .addFields(
+        {
+          name: "📋 What is the Self-Role System?",
+          value: "The self-role system allows you to assign and remove roles yourself using interactive buttons in a dedicated channel.",
+          inline: false
+        },
+        {
+          name: "🎯 How to Use It",
+          value: "1. **Find the Role Panel** - Look for the role selection message in the designated channel\n2. **Click Buttons** - Click any role button to add or remove that role\n3. **Get Feedback** - You'll receive a confirmation message for each action",
+          inline: false
+        },
+        {
+          name: "✨ Features",
+          value: "• **Toggle Roles** - Click once to add, click again to remove\n• **Instant Feedback** - Get confirmation messages\n• **Visual Interface** - Beautiful embeds with role descriptions\n• **Safe & Secure** - Only manage approved roles",
+          inline: false
+        },
+        {
+          name: "🔧 Admin Commands",
+          value: "`/setup_roles` - Initialize the system\n`/add_selfrole` - Add a role to selection\n`/remove_selfrole` - Remove a role\n`/roles_panel` - Create/update the panel\n`/roles_help` - Show this guide",
+          inline: false
+        },
+        {
+          name: "❓ Need Help?",
+          value: "If you can't find the role panel or have issues:\n• Ask an administrator to run `/roles_panel`\n• Check if the role system is set up with `/setup_roles`\n• Make sure you have permission to view the role channel",
+          inline: false
+        },
+        {
+          name: "🛡️ Permissions",
+          value: "The bot can only manage roles that:\n• Are not managed by other bots\n• Are lower than the bot's highest role\n• Have been specifically added by administrators",
+          inline: false
+        }
+      )
+      .setFooter({ 
+        text: `${interaction.guild.name} • Self-Role System`, 
+        iconURL: interaction.guild.iconURL() 
+      })
+      .setTimestamp();
+
+    // Check if role system is set up for this guild
+    const config = await roleService.getRoleConfig(interaction.guild.id);
+    
+    if (config && config.channelId) {
+      const channel = interaction.guild.channels.cache.get(config.channelId);
+      if (channel) {
+        embed.addFields({
+          name: "📍 Role Channel",
+          value: `The role selection panel is located in ${channel}`,
+          inline: false
+        });
+      }
+      
+      if (config.roles && config.roles.length > 0) {
+        const roleList = config.roles.map(role => {
+          const emoji = role.emoji || "🔹";
+          return `${emoji} **${role.roleName}**${role.description ? ` - ${role.description}` : ''}`;
+        }).join('\n');
+        
+        embed.addFields({
+          name: `🎭 Available Roles (${config.roles.length})`,
+          value: roleList.length > 1024 ? roleList.substring(0, 1021) + "..." : roleList,
+          inline: false
+        });
+      }
+    } else {
+      embed.addFields({
+        name: "⚠️ System Status",
+        value: "The self-role system is not set up for this server yet. Ask an administrator to run `/setup_roles` to get started!",
+        inline: false
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("Error in handleRolesHelp:", error);
+    await interaction.editReply("❌ An error occurred while displaying the role system guide.");
+  }
+}
+
 module.exports = {
   handleSetupRoles,
   handleAddSelfRole,
   handleRemoveSelfRole,
   handleRolesPanel,
+  handleRolesHelp,
 }; 

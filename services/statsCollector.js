@@ -10,7 +10,7 @@ class StatsCollector {
     };
     this.lastSave = Date.now();
     this.ACTIVITY_THRESHOLD = 25; // Save when 25 activities accumulated
-    this.MAX_WAIT_TIME = 60 * 1000; // 24 * 60 * : 24 hours max wait
+    this.MAX_WAIT_TIME = 24 * 60 * 60 * 1000; // 24 hours max wait
   }
 
   /**

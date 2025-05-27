@@ -19,10 +19,35 @@ const {
   handleRemoveSelfRole,
   handleRolesPanel,
   handleRolesHelp,
+  handleSetupPanel,
+  handleAddPanelRole,
+  handleRemovePanelRole,
+  handleUpdatePanel,
+  handleListPanels,
 } = require("./roleHandlers");
 const crypto = require("crypto");
 
-const HANDLER_ID = crypto.randomUUID().slice(0, 8); // Unique ID for this handler instance
+const HANDLER_ID = crypto.randomUUID().slice(0, 8);
+
+async function handleAutocomplete(interaction) {
+  try {
+    const { commandName, options } = interaction;
+    const focusedOption = options.getFocused(true);
+
+    if (focusedOption.name === 'panel_id') {
+      const panels = await roleService.getPanelAutocompleteOptions(interaction.guild.id);
+      const filtered = panels.filter(panel => 
+        panel.name.toLowerCase().includes(focusedOption.value.toLowerCase()) ||
+        panel.value.toLowerCase().includes(focusedOption.value.toLowerCase())
+      ).slice(0, 25); // Discord limits to 25 options
+
+      await interaction.respond(filtered);
+    }
+  } catch (error) {
+    console.error('Error handling autocomplete:', error);
+    await interaction.respond([]);
+  }
+} // Unique ID for this handler instance
 
 async function handleSelectMenus(interaction) {
   if (interaction.customId === "select_rider") {
@@ -107,24 +132,84 @@ async function handleInteractions(interaction) {
 
     // Handle role toggle buttons
     if (interaction.isButton() && interaction.customId.startsWith("role_toggle_")) {
-      const roleId = interaction.customId.replace("role_toggle_", "");
-      try {
-        await interaction.deferReply({ ephemeral: true });
+      const parts = interaction.customId.split("_");
+      
+      if (parts.length === 4) {
+        // New format: role_toggle_panelId_roleId
+        const panelId = parts[2];
+        const roleId = parts[3];
         
-        const result = await roleService.toggleUserRole(
-          interaction.guild,
-          interaction.user.id,
-          roleId
-        );
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          
+          // Get panel configuration
+          const panelConfig = await roleService.getPanelConfig(interaction.guild.id, panelId);
+          if (!panelConfig) {
+            await interaction.editReply("❌ Panel configuration not found.");
+            return;
+          }
+          
+          // Check if user has access to this panel
+          const accessCheck = await roleService.canUserAccessPanel(
+            interaction.guild, 
+            interaction.user.id, 
+            panelConfig
+          );
+          
+          if (!accessCheck.canAccess) {
+            const missingRolesList = accessCheck.missingRoles.join(", ");
+            await interaction.editReply(
+              `❌ You need the following roles to access this panel: **${missingRolesList}**`
+            );
+            return;
+          }
+          
+          // Proceed with role toggle
+          const result = await roleService.toggleUserRole(
+            interaction.guild,
+            interaction.user.id,
+            roleId
+          );
 
-        const emoji = result.action === "added" ? "✅" : "❌";
-        const actionText = result.action === "added" ? "added" : "removed";
-        
-        await interaction.editReply(`${emoji} Successfully ${actionText} the **${result.roleName}** role!`);
-      } catch (error) {
-        console.error("Error handling role toggle:", error);
-        await interaction.editReply(`❌ Error: ${error.message}`);
+          const emoji = result.action === "added" ? "✅" : "❌";
+          const actionText = result.action === "added" ? "added" : "removed";
+          
+          await interaction.editReply(
+            `${emoji} Successfully ${actionText} the **${result.roleName}** role from the **${panelConfig.name}** panel!`
+          );
+          
+        } catch (error) {
+          console.error("Error handling panel role toggle:", error);
+          await interaction.editReply(`❌ Error: ${error.message}`);
+        }
+        return;
+      } else if (parts.length === 3) {
+        // Legacy format: role_toggle_roleId (for backward compatibility)
+        const roleId = parts[2];
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          
+          const result = await roleService.toggleUserRole(
+            interaction.guild,
+            interaction.user.id,
+            roleId
+          );
+
+          const emoji = result.action === "added" ? "✅" : "❌";
+          const actionText = result.action === "added" ? "added" : "removed";
+          
+          await interaction.editReply(`${emoji} Successfully ${actionText} the **${result.roleName}** role!`);
+        } catch (error) {
+          console.error("Error handling legacy role toggle:", error);
+          await interaction.editReply(`❌ Error: ${error.message}`);
+        }
+        return;
       }
+    }
+
+    // Handle autocomplete
+    if (interaction.isAutocomplete()) {
+      await handleAutocomplete(interaction);
       return;
     }
 
@@ -176,11 +261,18 @@ async function handleInteractions(interaction) {
       "browse_riders": handleBrowseRiders,
       "event_results": handleEventResults,
       "test_welcome": handleTestWelcome,
+      // Legacy role commands
       "setup_roles": handleSetupRoles,
       "add_selfrole": handleAddSelfRole,
       "remove_selfrole": handleRemoveSelfRole,
       "roles_panel": handleRolesPanel,
       "roles_help": handleRolesHelp,
+      // New panel commands
+      "setup_panel": handleSetupPanel,
+      "add_panel_role": handleAddPanelRole,
+      "remove_panel_role": handleRemovePanelRole,
+      "update_panel": handleUpdatePanel,
+      "list_panels": handleListPanels,
     };
 
     const handler = commandHandlers[commandName];

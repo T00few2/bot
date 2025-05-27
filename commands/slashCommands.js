@@ -154,10 +154,10 @@ const commands = [
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
   
-  // Self-role management commands
+  // Legacy self-role management commands (for backward compatibility)
   new SlashCommandBuilder()
     .setName("setup_roles")
-    .setDescription("Setup the self-role system for this server (admin only)")
+    .setDescription("Setup the default role system for this server (admin only)")
     .addChannelOption(option =>
       option
         .setName("channel")
@@ -168,7 +168,7 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName("add_selfrole")
-    .setDescription("Add a role to the self-selection list (admin only)")
+    .setDescription("Add a role to the default role panel (admin only)")
     .addRoleOption(option =>
       option
         .setName("role")
@@ -191,7 +191,7 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName("remove_selfrole")
-    .setDescription("Remove a role from the self-selection list (admin only)")
+    .setDescription("Remove a role from the default role panel (admin only)")
     .addRoleOption(option =>
       option
         .setName("role")
@@ -202,12 +202,113 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName("roles_panel")
-    .setDescription("Create/update the role selection panel (admin only)")
+    .setDescription("Create/update the default role selection panel (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  // NEW: Multi-panel role management commands
+  new SlashCommandBuilder()
+    .setName("setup_panel")
+    .setDescription("Setup a role panel for a specific channel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Unique ID for this panel (e.g., 'basic', 'advanced', 'vip')")
+        .setRequired(true)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("channel")
+        .setDescription("Channel where this panel will be posted")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("name")
+        .setDescription("Display name for this panel")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("description")
+        .setDescription("Description for this panel")
+        .setRequired(false)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role")
+        .setDescription("Role required to access this panel (optional)")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("add_panel_role")
+    .setDescription("Add a role to a specific panel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID to add the role to")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to add")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("description")
+        .setDescription("Description for this role")
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option
+        .setName("emoji")
+        .setDescription("Emoji for this role")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("remove_panel_role")
+    .setDescription("Remove a role from a specific panel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID to remove the role from")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to remove")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("update_panel")
+    .setDescription("Update/refresh a specific role panel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID to update")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("list_panels")
+    .setDescription("List all role panels in this server (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
     
   new SlashCommandBuilder()
     .setName("roles_help")
-    .setDescription("Show the self-role system guide and instructions")
+    .setDescription("Show the role system guide and instructions")
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

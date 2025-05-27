@@ -382,59 +382,74 @@ async function handleListPanels(interaction) {
 async function handleRolesHelp(interaction) {
   try {
     const embed = new EmbedBuilder()
-      .setTitle("🎭 Role System Guide")
-      .setDescription("Learn how to use the advanced role system!")
+      .setTitle("🎭 Multi-Panel Role System Guide")
+      .setDescription("Learn how to create advanced role panels with progressive access control!")
       .setColor(0x5865F2)
       .setThumbnail(interaction.guild.iconURL())
       .addFields(
         {
-          name: "📋 What is the Role System?",
-          value: "The role system allows users to assign and remove roles themselves using interactive buttons. You can create multiple panels with different access requirements!",
+          name: "🌟 What is the Multi-Panel System?",
+          value: "Create different role panels in different channels, each with their own access requirements. Users progress through role tiers by getting basic roles first to unlock advanced panels.",
           inline: false
         },
         {
-          name: "🎯 How to Use It",
-          value: "1. **Find Role Panels** - Look for role selection messages in designated channels\n2. **Click Buttons** - Click any role button to add or remove that role\n3. **Progressive Access** - Get basic roles first to unlock advanced panels\n4. **Get Feedback** - You'll receive confirmation messages for each action",
+          name: "🚀 Quick Setup Example",
+          value: "```\n/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"\n/add_panel_role panel_id:basic role:@Member description:\"Basic access\"\n/update_panel panel_id:basic\n```",
           inline: false
         },
         {
-          name: "✨ Features",
-          value: "• **Multiple Panels** - Different role panels in different channels\n• **Access Control** - Panels can require specific roles\n• **Progressive System** - Unlock advanced roles by getting basic ones\n• **Visual Interface** - Beautiful embeds with role descriptions\n• **Safe & Secure** - Only manage approved roles",
+          name: "📋 Step-by-Step Setup Guide",
+          value: "**1. Plan Your Structure**\n• Decide what roles you want (Member, VIP, etc.)\n• Choose which channels will host panels\n• Plan the progression (what unlocks what)\n\n**2. Create Channels**\n• #general-roles (everyone can view)\n• #member-zone (only @Member can view)\n• #vip-lounge (only @VIP can view)",
           inline: false
         },
         {
-          name: "🔧 Admin Commands - Basic",
-          value: "`/setup_roles` - Setup default panel\n`/add_selfrole` - Add role to default panel\n`/roles_panel` - Update default panel\n`/roles_help` - Show this guide",
+          name: "🔧 Panel Creation Commands",
+          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`",
           inline: false
         },
         {
-          name: "🚀 Admin Commands - Advanced",
-          value: "`/setup_panel` - Create custom panel\n`/add_panel_role` - Add role to specific panel\n`/update_panel` - Refresh specific panel\n`/list_panels` - View all panels",
+          name: "➕ Adding Roles to Panels",
+          value: "**Add roles with descriptions and emojis:**\n`/add_panel_role panel_id:basic role:@Member description:\"Basic member access\" emoji:👤`\n`/add_panel_role panel_id:vip role:@VIP description:\"VIP access\" emoji:💎`",
           inline: false
         },
         {
-          name: "💡 Example Setup",
-          value: "**Basic Panel** (#general-roles): Member, Gamer, Artist\n**Gaming Panel** (#gaming-zone, requires Member): Competitive, Streamer\n**VIP Panel** (#vip-lounge, requires Competitive): VIP, Beta Tester",
+          name: "🔄 Deploying Your Panels",
+          value: "**After adding roles, deploy the panel:**\n`/update_panel panel_id:basic`\n`/update_panel panel_id:vip`\n\n**View all your panels:**\n`/list_panels`",
           inline: false
         },
         {
-          name: "❓ Need Help?",
-          value: "If you can't find role panels or have issues:\n• Ask an administrator to run `/list_panels`\n• Check if you have the required roles for advanced panels\n• Make sure you have permission to view the panel channels",
+          name: "💡 Complete Example Setup",
+          value: "```bash\n# Step 1: Basic panel for everyone\n/setup_panel panel_id:basic channel:#roles name:\"Server Roles\"\n/add_panel_role panel_id:basic role:@Member emoji:👤\n/add_panel_role panel_id:basic role:@Gamer emoji:🎮\n/update_panel panel_id:basic\n\n# Step 2: VIP panel (requires Member)\n/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member\n/add_panel_role panel_id:vip role:@VIP emoji:💎\n/update_panel panel_id:vip\n```",
           inline: false
         },
         {
-          name: "🛡️ Permissions",
-          value: "The bot can only manage roles that:\n• Are not managed by other bots\n• Are lower than the bot's highest role\n• Have been specifically added by administrators",
+          name: "🎯 User Experience Flow",
+          value: "1. **Users start in #roles** → Get @Member role\n2. **#vip-zone unlocks** → Now accessible with @Member\n3. **Get @VIP role** → Access exclusive features\n4. **Progressive access** → Each role unlocks new opportunities",
+          inline: false
+        },
+        {
+          name: "🛠️ Management Commands",
+          value: "`/list_panels` - View all panels and their status\n`/add_panel_role` - Add more roles to existing panels\n`/remove_panel_role` - Remove roles from panels\n`/update_panel` - Refresh a panel after changes",
+          inline: false
+        },
+        {
+          name: "⚠️ Important Notes",
+          value: "• **Bot role must be higher** than roles it manages\n• **Channel permissions** control who can see panels\n• **Required roles** create the progression system\n• **Panel IDs** must be unique (use: letters, numbers, -, _)",
+          inline: false
+        },
+        {
+          name: "🔒 Access Control Tips",
+          value: "• Set channel permissions so only certain roles can view advanced channels\n• Use descriptive panel names and IDs\n• Test the progression flow with a test account\n• Start simple and add complexity gradually",
           inline: false
         }
       )
       .setFooter({ 
-        text: `${interaction.guild.name} • Role System`, 
+        text: `${interaction.guild.name} • Multi-Panel Role System`, 
         iconURL: interaction.guild.iconURL() 
       })
       .setTimestamp();
 
-    // Check if any panels are set up for this guild
+    // Check if any panels are set up for this guild and show current status
     const panels = await roleService.getAllPanels(interaction.guild.id);
     
     if (Object.keys(panels).length > 0) {
@@ -447,25 +462,25 @@ async function handleRolesHelp(interaction) {
         const status = panel.panelMessageId ? "✅" : "⚠️";
         const requiredInfo = panel.requiredRoles && panel.requiredRoles.length > 0 ? " 🔒" : "";
         
-        panelsList += `${status} **${panel.name}** (${panel.roles.length} roles)${requiredInfo} - ${channelMention}\n`;
+        panelsList += `${status} **${panel.name}** (\`${panelId}\`) - ${panel.roles.length} roles${requiredInfo}\n`;
         totalRoles += panel.roles.length;
       }
       
       embed.addFields({
-        name: `📍 Active Panels (${Object.keys(panels).length})`,
+        name: `📊 Your Current Setup (${Object.keys(panels).length} panels)`,
         value: panelsList.length > 1024 ? panelsList.substring(0, 1021) + "..." : panelsList,
         inline: false
       });
       
       embed.addFields({
-        name: "📊 Statistics",
-        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Legend:** ✅ Active, ⚠️ Not deployed, 🔒 Requires roles`,
+        name: "📈 Quick Stats",
+        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Status:** ✅ Active, ⚠️ Not deployed, 🔒 Has requirements`,
         inline: false
       });
     } else {
       embed.addFields({
-        name: "⚠️ System Status",
-        value: "No role panels are set up for this server yet.\n\nAdministrators can use `/setup_panel` or `/setup_roles` to get started!",
+        name: "🚀 Ready to Start?",
+        value: "No panels found! Use the commands above to create your first multi-panel role system.\n\n**Recommended first step:**\n`/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`",
         inline: false
       });
     }

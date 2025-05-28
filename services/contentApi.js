@@ -60,6 +60,44 @@ async function getDueScheduledMessages() {
 }
 
 /**
+ * Get messages selected for probability-based sending
+ */
+async function getProbabilitySelectedMessages() {
+  try {
+    console.log(`🔄 API Call: Checking probability-based messages...`);
+    console.log(`   URL: ${API_BASE_URL}/api/schedules/probability-check`);
+    
+    const response = await axios.post(`${API_BASE_URL}/api/schedules/probability-check`, {}, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
+    });
+    
+    console.log(`✅ API Response: Probability check completed`);
+    console.log(`   Messages to send: ${response.data.messages_to_send.length}`);
+    console.log(`   Total eligible: ${response.data.total_eligible}`);
+    console.log(`   Channels checked: ${response.data.channels_checked}`);
+    
+    if (response.data.messages_to_send.length > 0) {
+      console.log(`📋 Selected messages:`, response.data.messages_to_send.map(msg => ({
+        id: msg.id,
+        title: msg.title,
+        channel_id: msg.channel_id,
+        likelihood: msg.schedule?.likelihood || 1.0,
+        daily_probability: msg.schedule?.daily_probability || 0.1
+      })));
+    }
+    
+    return response.data.messages_to_send;
+  } catch (error) {
+    console.error("❌ API Error checking probability messages:", error.message);
+    if (error.response) {
+      console.error(`   Status: ${error.response.status}`);
+      console.error(`   Data:`, error.response.data);
+    }
+    return [];
+  }
+}
+
+/**
  * Mark a scheduled message as sent
  */
 async function markScheduledMessageSent(scheduleId) {
@@ -101,6 +139,7 @@ function processMessageContent(content, variables = {}) {
 module.exports = {
   getWelcomeMessage,
   getDueScheduledMessages,
+  getProbabilitySelectedMessages,
   markScheduledMessageSent,
   processMessageContent,
 }; 

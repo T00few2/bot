@@ -1,27 +1,86 @@
 const { EmbedBuilder } = require("discord.js");
-const { getDueScheduledMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
+const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
 
 /**
- * Check for and send scheduled messages
+ * Check for and send scheduled messages (both time-based and probability-based)
  */
 async function checkScheduledMessages(client) {
   try {
     console.log("🔍 Checking for scheduled messages...");
+    
+    // Check time-based scheduled messages
+    await checkTimeBasedMessages(client);
+    
+    // Check probability-based messages (only once per day)
+    await checkProbabilityBasedMessages(client);
+    
+  } catch (error) {
+    console.error("❌ Error checking scheduled messages:", error);
+  }
+}
+
+/**
+ * Check for time-based scheduled messages (existing functionality)
+ */
+async function checkTimeBasedMessages(client) {
+  try {
+    console.log("🕐 Checking time-based scheduled messages...");
     const dueMessages = await getDueScheduledMessages();
     
-    console.log(`📋 Found ${dueMessages.length} due messages`);
+    console.log(`📋 Found ${dueMessages.length} due time-based messages`);
     
     if (dueMessages.length === 0) {
-      console.log("✅ No scheduled messages due at this time");
+      console.log("✅ No time-based scheduled messages due at this time");
       return;
     }
     
     for (const scheduledMessage of dueMessages) {
-      console.log(`📤 Processing scheduled message: ${scheduledMessage.title} (ID: ${scheduledMessage.id})`);
+      console.log(`📤 Processing time-based scheduled message: ${scheduledMessage.title} (ID: ${scheduledMessage.id})`);
       await sendScheduledMessage(client, scheduledMessage);
     }
   } catch (error) {
-    console.error("❌ Error checking scheduled messages:", error);
+    console.error("❌ Error checking time-based scheduled messages:", error);
+  }
+}
+
+/**
+ * Check for probability-based messages (once per day)
+ */
+async function checkProbabilityBasedMessages(client) {
+  try {
+    // Only check probability messages once per day (at a specific time)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Check probability messages at 9:00 AM (you can adjust this time)
+    const PROBABILITY_CHECK_HOUR = 10;
+    const PROBABILITY_CHECK_MINUTE = 0;
+    
+    // Only run during the specific minute to avoid multiple checks
+    if (currentHour === PROBABILITY_CHECK_HOUR && currentMinute === PROBABILITY_CHECK_MINUTE) {
+      console.log("🎲 Checking probability-based scheduled messages...");
+      const selectedMessages = await getProbabilitySelectedMessages();
+      
+      console.log(`📋 Found ${selectedMessages.length} probability-selected messages`);
+      
+      if (selectedMessages.length === 0) {
+        console.log("✅ No probability-based messages selected for today");
+        return;
+      }
+      
+      for (const scheduledMessage of selectedMessages) {
+        console.log(`📤 Processing probability-selected message: ${scheduledMessage.title} (ID: ${scheduledMessage.id})`);
+        await sendScheduledMessage(client, scheduledMessage);
+      }
+    } else {
+      // Log only once per hour to avoid spam
+      if (currentMinute === 0) {
+        console.log(`🎲 Probability check scheduled for ${PROBABILITY_CHECK_HOUR}:${PROBABILITY_CHECK_MINUTE.toString().padStart(2, '0')} (current: ${currentHour}:${currentMinute.toString().padStart(2, '0')})`);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error checking probability-based scheduled messages:", error);
   }
 }
 

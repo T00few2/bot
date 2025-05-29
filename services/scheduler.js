@@ -48,18 +48,19 @@ async function checkTimeBasedMessages(client) {
  */
 async function checkProbabilityBasedMessages(client) {
   try {
-    // Only check probability messages once per day (at a specific time)
+    // Get current time in Central European Time
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const cetTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const currentHour = cetTime.getHours();
+    const currentMinute = cetTime.getMinutes();
     
-    // Check probability messages at 9:00 AM (you can adjust this time)
+    // Check probability messages at 10:00 AM CET
     const PROBABILITY_CHECK_HOUR = 10;
     const PROBABILITY_CHECK_MINUTE = 0;
     
     // Only run during the specific minute to avoid multiple checks
     if (currentHour === PROBABILITY_CHECK_HOUR && currentMinute === PROBABILITY_CHECK_MINUTE) {
-      console.log("🎲 Checking probability-based scheduled messages...");
+      console.log("🎲 Checking probability-based scheduled messages... (CET)");
       const selectedMessages = await getProbabilitySelectedMessages();
       
       console.log(`📋 Found ${selectedMessages.length} probability-selected messages`);
@@ -76,7 +77,7 @@ async function checkProbabilityBasedMessages(client) {
     } else {
       // Log only once per hour to avoid spam
       if (currentMinute === 0) {
-        console.log(`🎲 Probability check scheduled for ${PROBABILITY_CHECK_HOUR}:${PROBABILITY_CHECK_MINUTE.toString().padStart(2, '0')} (current: ${currentHour}:${currentMinute.toString().padStart(2, '0')})`);
+        console.log(`🎲 Probability check scheduled for ${PROBABILITY_CHECK_HOUR}:${PROBABILITY_CHECK_MINUTE.toString().padStart(2, '0')} CET (current CET: ${currentHour}:${currentMinute.toString().padStart(2, '0')})`);
       }
     }
   } catch (error) {

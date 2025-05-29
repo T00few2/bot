@@ -54,9 +54,9 @@ async function checkProbabilityBasedMessages(client) {
     const currentHour = cetTime.getHours();
     const currentMinute = cetTime.getMinutes();
     
-    // Check probability messages at 10:00 AM CET
-    const PROBABILITY_CHECK_HOUR = 10;
-    const PROBABILITY_CHECK_MINUTE = 0;
+    // Check probability messages at 2:00 PM CET
+    const PROBABILITY_CHECK_HOUR = 13;
+    const PROBABILITY_CHECK_MINUTE = 40;
     
     // Only run during the specific minute to avoid multiple checks
     if (currentHour === PROBABILITY_CHECK_HOUR && currentMinute === PROBABILITY_CHECK_MINUTE) {

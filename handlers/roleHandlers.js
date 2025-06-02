@@ -743,6 +743,223 @@ async function handleSetPanelApprovalChannel(interaction) {
   }
 }
 
+// NEW: Team Captain Management Functions
+async function handleMyTeam(interaction) {
+  try {
+    const teamRole = interaction.options.getRole("team_role");
+    const userId = interaction.user.id;
+
+    // Get all panels to find which teams this user is a captain of
+    const panels = await roleService.getAllPanels(interaction.guild.id);
+    let captainTeams = [];
+
+    // Find all teams where this user is a team captain
+    for (const [panelId, panel] of Object.entries(panels)) {
+      for (const role of panel.roles) {
+        if (role.teamCaptainId === userId) {
+          // Get role info and member count
+          const guildRole = await interaction.guild.roles.fetch(role.roleId);
+          if (guildRole) {
+            const members = guildRole.members.map(member => ({
+              id: member.id,
+              displayName: member.displayName,
+              tag: member.user.tag,
+              joinedAt: member.joinedAt
+            }));
+
+            captainTeams.push({
+              roleId: role.roleId,
+              roleName: role.roleName,
+              panelId: panelId,
+              panelName: panel.name,
+              members: members,
+              guildRole: guildRole
+            });
+          }
+        }
+      }
+    }
+
+    if (captainTeams.length === 0) {
+      await interaction.editReply("❌ You are not a team captain for any roles in this server.");
+      return;
+    }
+
+    // If specific team role requested, filter to that team
+    if (teamRole) {
+      const requestedTeam = captainTeams.find(team => team.roleId === teamRole.id);
+      if (!requestedTeam) {
+        await interaction.editReply(`❌ You are not the team captain for **${teamRole.name}**.`);
+        return;
+      }
+      captainTeams = [requestedTeam];
+    }
+
+    // Create embed(s) showing team information
+    const embeds = [];
+
+    for (const team of captainTeams) {
+      const embed = new EmbedBuilder()
+        .setTitle(`👨‍✈️ Team Captain - ${team.roleName}`)
+        .setDescription(`You are the captain of **${team.roleName}**`)
+        .setColor(team.guildRole.color || 0x5865F2)
+        .addFields([
+          { name: "🏆 Team", value: `<@&${team.roleId}>`, inline: true },
+          { name: "📋 Panel", value: team.panelName, inline: true },
+          { name: "👥 Members", value: team.members.length.toString(), inline: true }
+        ])
+        .setFooter({ text: `${interaction.guild.name} • Team Management` })
+        .setTimestamp();
+
+      if (team.members.length === 0) {
+        embed.addFields([
+          { name: "📝 Team Status", value: "No members yet", inline: false }
+        ]);
+      } else {
+        // Show team members (limit to avoid embed limits)
+        const memberList = team.members.slice(0, 20).map((member, index) => 
+          `${index + 1}. **${member.displayName}** (${member.tag})`
+        ).join('\n');
+
+        embed.addFields([
+          { 
+            name: `👥 Team Members ${team.members.length > 20 ? `(showing first 20 of ${team.members.length})` : ''}`, 
+            value: memberList || "No members", 
+            inline: false 
+          }
+        ]);
+
+        if (team.members.length > 20) {
+          embed.addFields([
+            { name: "📄 Note", value: `Use \`/remove_team_member team_role:${team.roleName}\` to remove specific members.`, inline: false }
+          ]);
+        }
+      }
+
+      // Add management instructions
+      embed.addFields([
+        { 
+          name: "🛠️ Team Management", 
+          value: `• **Remove Member**: \`/remove_team_member team_role:${team.roleName} member:@username\`\n• **View Approvals**: Check your approval channel for join requests\n• **Team Panel**: Members can join/leave through the role panel`, 
+          inline: false 
+        }
+      ]);
+
+      embeds.push(embed);
+    }
+
+    // Send response (Discord allows up to 10 embeds per message)
+    const embedsToSend = embeds.slice(0, 10);
+    await interaction.editReply({ embeds: embedsToSend });
+
+    if (embeds.length > 10) {
+      await interaction.followUp({ 
+        content: `⚠️ You have more than 10 teams. Use \`/my_team team_role:@role\` to view specific teams.`,
+        ephemeral: true 
+      });
+    }
+
+  } catch (error) {
+    console.error("Error in handleMyTeam:", error);
+    await interaction.editReply("❌ An error occurred while retrieving your team information.");
+  }
+}
+
+async function handleRemoveTeamMember(interaction) {
+  try {
+    const teamRole = interaction.options.getRole("team_role");
+    const memberToRemove = interaction.options.getUser("member");
+    const reason = interaction.options.getString("reason") || "No reason provided";
+    const userId = interaction.user.id;
+
+    // Check if the user is a team captain for this role
+    const panels = await roleService.getAllPanels(interaction.guild.id);
+    let isTeamCaptain = false;
+    let teamInfo = null;
+
+    for (const [panelId, panel] of Object.entries(panels)) {
+      const roleConfig = panel.roles.find(role => role.roleId === teamRole.id && role.teamCaptainId === userId);
+      if (roleConfig) {
+        isTeamCaptain = true;
+        teamInfo = {
+          panelId: panelId,
+          panelName: panel.name,
+          roleConfig: roleConfig
+        };
+        break;
+      }
+    }
+
+    if (!isTeamCaptain) {
+      await interaction.editReply(`❌ You are not the team captain for **${teamRole.name}**.`);
+      return;
+    }
+
+    // Check if the target user is actually a member of the team
+    const targetMember = await interaction.guild.members.fetch(memberToRemove.id);
+    if (!targetMember.roles.cache.has(teamRole.id)) {
+      await interaction.editReply(`❌ **${memberToRemove.displayName}** is not a member of **${teamRole.name}**.`);
+      return;
+    }
+
+    // Prevent captains from removing themselves (they can leave through the panel)
+    if (memberToRemove.id === userId) {
+      await interaction.editReply("❌ You cannot remove yourself as team captain. Use the role panel to leave the team or contact an admin to change team captains.");
+      return;
+    }
+
+    // Remove the role from the target member
+    await targetMember.roles.remove(teamRole.id);
+
+    // Send notification to the removed member
+    try {
+      const captain = await interaction.guild.members.fetch(userId);
+      
+      const removalEmbed = new EmbedBuilder()
+        .setTitle("⚠️ Removed from Team")
+        .setDescription("You have been removed from a team")
+        .setColor(0xFF6B6B)
+        .addFields([
+          { name: "🏆 Team", value: `<@&${teamRole.id}>`, inline: true },
+          { name: "🏠 Server", value: interaction.guild.name, inline: true },
+          { name: "👨‍✈️ Removed By", value: `${captain.displayName} (Team Captain)`, inline: true },
+          { name: "📝 Reason", value: reason, inline: false },
+          { name: "ℹ️ Next Steps", value: "You can rejoin this team anytime through the role panel if you meet the requirements.", inline: false }
+        ])
+        .setThumbnail(interaction.guild.iconURL())
+        .setFooter({ text: `${interaction.guild.name} • Team Management` })
+        .setTimestamp();
+
+      await targetMember.send({ embeds: [removalEmbed] });
+    } catch (dmError) {
+      console.log(`Could not send removal notification to ${memberToRemove.tag}: ${dmError.message}`);
+    }
+
+    // Send confirmation to the team captain
+    const confirmationEmbed = new EmbedBuilder()
+      .setTitle("✅ Team Member Removed")
+      .setDescription("Successfully removed team member")
+      .setColor(0x00FF00)
+      .addFields([
+        { name: "🚴 Removed Member", value: `${targetMember.displayName} (${memberToRemove.tag})`, inline: true },
+        { name: "🏆 From Team", value: teamRole.toString(), inline: true },
+        { name: "📝 Reason", value: reason, inline: false },
+        { name: "👥 Team Status", value: `${teamRole.members.size} members remaining`, inline: true }
+      ])
+      .setFooter({ text: `${interaction.guild.name} • Team Management` })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [confirmationEmbed] });
+
+    // Log the action for admins (optional - could log to a moderation channel)
+    console.log(`Team Captain ${interaction.user.tag} removed ${memberToRemove.tag} from ${teamRole.name}. Reason: ${reason}`);
+
+  } catch (error) {
+    console.error("Error in handleRemoveTeamMember:", error);
+    await interaction.editReply("❌ An error occurred while removing the team member.");
+  }
+}
+
 module.exports = {
   // Legacy handlers
   handleSetupRoles,
@@ -761,4 +978,7 @@ module.exports = {
   handlePendingApprovals,
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
+  // NEW: Team Captain Management Functions
+  handleMyTeam,
+  handleRemoveTeamMember,
 }; 

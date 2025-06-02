@@ -28,6 +28,8 @@ const {
   handlePendingApprovals,
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
+  handleMyTeam,
+  handleRemoveTeamMember,
 } = require("./roleHandlers");
 const crypto = require("crypto");
 
@@ -424,6 +426,9 @@ async function handleInteractions(interaction) {
       "pending_approvals": handlePendingApprovals,
       "set_team_captain": handleSetTeamCaptain,
       "set_panel_approval_channel": handleSetPanelApprovalChannel,
+      // NEW: Team Captain Management Commands
+      "my_team": handleMyTeam,
+      "remove_team_member": handleRemoveTeamMember,
     };
 
     const handler = commandHandlers[commandName];

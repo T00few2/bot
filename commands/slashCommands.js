@@ -397,7 +397,40 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("roles_help")
-    .setDescription("Show the role system guide and instructions"),
+    .setDescription("Advanced role system guide and setup help"),
+
+  // NEW: Team Captain Management Commands
+  new SlashCommandBuilder()
+    .setName("my_team")
+    .setDescription("View and manage your team members (team captains only)")
+    .addRoleOption(option =>
+      option
+        .setName("team_role")
+        .setDescription("Specific team to view (leave empty to see all your teams)")
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("remove_team_member")
+    .setDescription("Remove a member from your team (team captains only)")
+    .addRoleOption(option =>
+      option
+        .setName("team_role")
+        .setDescription("The team role to remove the member from")
+        .setRequired(true)
+    )
+    .addUserOption(option =>
+      option
+        .setName("member")
+        .setDescription("The team member to remove")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("reason")
+        .setDescription("Optional reason for removal")
+        .setRequired(false)
+    ),
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

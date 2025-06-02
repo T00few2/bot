@@ -8,7 +8,7 @@ class ApprovalService {
   }
 
   // Submit a role approval request
-  async submitRoleRequest(guildId, userId, roleId, roleName, panelId, panelName) {
+  async submitRoleRequest(guildId, userId, roleId, roleName, panelId, panelName, teamCaptainId = null) {
     try {
       const requestId = `${guildId}_${userId}_${roleId}_${Date.now()}`;
       
@@ -19,6 +19,7 @@ class ApprovalService {
         roleName,
         panelId,
         panelName,
+        teamCaptainId, // The specific team captain who should approve this
         status: "pending",
         requestedAt: new Date(),
         approvedBy: null,
@@ -39,17 +40,31 @@ class ApprovalService {
   // Create approval message embed
   createApprovalEmbed(requestData, guild, user) {
     const embed = new EmbedBuilder()
-      .setTitle("🔐 Role Approval Request")
+      .setTitle("🏁 Team Join Request")
+      .setDescription("A rider wants to join a team!")
       .setColor(0xFFAA00)
       .addFields([
-        { name: "👤 User", value: `${user.displayName} (${user.user.tag})`, inline: true },
-        { name: "🎭 Requested Role", value: `<@&${requestData.roleId}>`, inline: true },
+        { name: "🚴 Rider", value: `${user.displayName} (${user.user.tag})`, inline: true },
+        { name: "🏆 Team Role", value: `<@&${requestData.roleId}>`, inline: true },
         { name: "📋 Panel", value: requestData.panelName, inline: true },
         { name: "🕐 Requested At", value: `<t:${Math.floor(requestData.requestedAt.getTime() / 1000)}:R>`, inline: false }
       ])
       .setThumbnail(user.user.displayAvatarURL())
-      .setFooter({ text: `Server: ${guild.name} • React with ✅ to approve` })
       .setTimestamp();
+
+    // Add team captain information if specified
+    if (requestData.teamCaptainId) {
+      embed.addFields([
+        { name: "👨‍✈️ Team Captain", value: `<@${requestData.teamCaptainId}>`, inline: true },
+        { name: "✅ How to Approve", value: `<@${requestData.teamCaptainId}> React with ✅ to approve this rider for your team!\n\n*Admins can also approve this request.*`, inline: false }
+      ]);
+      embed.setFooter({ text: `${guild.name} • Team Captain: React ✅ to approve` });
+    } else {
+      embed.addFields([
+        { name: "✅ How to Approve", value: "Admins: React with ✅ to approve this request.", inline: false }
+      ]);
+      embed.setFooter({ text: `${guild.name} • Admin approval required` });
+    }
 
     return embed;
   }
@@ -117,23 +132,39 @@ class ApprovalService {
       const requestData = requestDoc.data();
       const requestId = requestDoc.id;
 
-      // Check if user has permission to approve (admin or specific approver role)
+      // Check if user has permission to approve
       const approver = await guild.members.fetch(userId);
-      const hasApprovalPermission = approver.permissions.has("Administrator") || 
-                                   approver.permissions.has("ManageRoles");
+      let hasApprovalPermission = false;
+      let approverType = "";
+
+      // Check if user is the designated team captain
+      if (requestData.teamCaptainId && userId === requestData.teamCaptainId) {
+        hasApprovalPermission = true;
+        approverType = "Team Captain";
+      }
+      // Check if user is an admin (fallback)
+      else if (approver.permissions.has("Administrator") || approver.permissions.has("ManageRoles")) {
+        hasApprovalPermission = true;
+        approverType = "Admin";
+      }
 
       if (!hasApprovalPermission) {
-        // Optional: Send ephemeral message to user that they don't have permission
-        return null;
+        // Send ephemeral message if someone without permission tries to approve
+        return { 
+          approved: false, 
+          error: "You don't have permission to approve this request. Only the team captain or admins can approve.",
+          requestData 
+        };
       }
 
       // Approve the request
-      await this.approveRequest(requestId, userId, guild);
+      await this.approveRequest(requestId, userId, guild, approverType);
 
       return {
         approved: true,
         requestData,
-        approver: approver.user
+        approver: approver.user,
+        approverType
       };
     } catch (error) {
       console.error("Error handling approval reaction:", error);
@@ -142,7 +173,7 @@ class ApprovalService {
   }
 
   // Approve a role request
-  async approveRequest(requestId, approverId, guild) {
+  async approveRequest(requestId, approverId, guild, approverType = "Admin") {
     try {
       const requestDoc = await db.collection(this.collection).doc(requestId).get();
       
@@ -177,7 +208,8 @@ class ApprovalService {
       await db.collection(this.collection).doc(requestId).update({
         status: "approved",
         approvedBy: approverId,
-        approvedAt: new Date()
+        approvedAt: new Date(),
+        approverType: approverType
       });
 
       // Update the approval message
@@ -189,10 +221,11 @@ class ApprovalService {
           
           const updatedEmbed = EmbedBuilder.from(approvalMessage.embeds[0])
             .setColor(0x00FF00)
-            .setTitle("✅ Role Approval Request - APPROVED")
+            .setTitle("✅ Team Join Request - APPROVED")
             .addFields([
               { name: "👮 Approved By", value: `${approver.displayName} (${approver.user.tag})`, inline: true },
-              { name: "✅ Approved At", value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
+              { name: "✅ Approved At", value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
+              { name: "👥 Approver Type", value: approverType, inline: true }
             ]);
 
           await approvalMessage.edit({ embeds: [updatedEmbed] });

@@ -93,7 +93,7 @@ class RoleService {
   }
 
   // NEW: Add role to specific panel
-  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false) {
+  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null) {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -116,6 +116,7 @@ class RoleService {
         description,
         emoji,
         requiresApproval,
+        teamCaptainId, // The specific user who can approve this role
         addedAt: new Date()
       });
 
@@ -318,9 +319,20 @@ class RoleService {
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
+      let approvalInfo = `The following roles require approval: ${approvalRoles.map(role => `<@&${role.roleId}>`).join(", ")}`;
+      
+      // Add team captain info if any roles have specific captains
+      const teamCaptainRoles = approvalRoles.filter(role => role.teamCaptainId);
+      if (teamCaptainRoles.length > 0) {
+        approvalInfo += `\n\n**Team Captains:**`;
+        teamCaptainRoles.forEach(role => {
+          approvalInfo += `\n• <@&${role.roleId}> → <@${role.teamCaptainId}>`;
+        });
+      }
+      
       embed.addFields({ 
         name: "🔐 Approval Required", 
-        value: `The following roles require approval: ${approvalRoles.map(role => `<@&${role.roleId}>`).join(", ")}`,
+        value: approvalInfo,
         inline: false 
       });
     }
@@ -442,7 +454,8 @@ class RoleService {
               roleId,
               role.name,
               panelId,
-              panelConfig.name
+              panelConfig.name,
+              roleConfig.teamCaptainId // Pass the team captain ID
             );
 
             // Send approval request to approval channel
@@ -453,13 +466,16 @@ class RoleService {
               roleName: role.name,
               panelId: panelId,
               panelName: panelConfig.name,
+              teamCaptainId: roleConfig.teamCaptainId,
               requestedAt: new Date()
             });
 
             return { 
               action: "approval_requested", 
               roleName: role.name,
-              message: "Your request has been submitted for approval. You will receive the role once an admin approves it."
+              message: roleConfig.teamCaptainId 
+                ? "Your request has been submitted for team captain approval. You will receive the role once your team captain approves it."
+                : "Your request has been submitted for admin approval. You will receive the role once an admin approves it."
             };
           }
         }
@@ -486,6 +502,37 @@ class RoleService {
     } catch (error) {
       console.error("Error getting panel autocomplete options:", error);
       return [];
+    }
+  }
+
+  // NEW: Update team captain for a role
+  async updateRoleTeamCaptain(guildId, panelId, roleId, teamCaptainId) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      const panel = data.panels[panelId];
+      
+      // Find the role and update it
+      const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
+      if (roleIndex === -1) {
+        throw new Error("Role not found in this panel.");
+      }
+
+      panel.roles[roleIndex].teamCaptainId = teamCaptainId;
+      panel.updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating role team captain:", error);
+      throw error;
     }
   }
 }

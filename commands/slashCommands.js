@@ -275,6 +275,12 @@ const commands = [
         .setDescription("Whether this role requires approval before being granted")
         .setRequired(false)
     )
+    .addUserOption(option =>
+      option
+        .setName("team_captain")
+        .setDescription("Team captain who can approve this role (if approval required)")
+        .setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -340,6 +346,30 @@ const commands = [
     .setName("pending_approvals")
     .setDescription("View pending role approval requests (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageRoles),
+
+  new SlashCommandBuilder()
+    .setName("set_team_captain")
+    .setDescription("Set or update the team captain for a role (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID containing the role")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The team role to assign a captain to")
+        .setRequired(true)
+    )
+    .addUserOption(option =>
+      option
+        .setName("team_captain")
+        .setDescription("The user who will be the team captain")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
     .setName("setup_approval_channel")

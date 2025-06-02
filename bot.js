@@ -67,8 +67,17 @@ client.on("messageReactionAdd", async (reaction, user) => {
         reaction.message.guild
       );
 
-      if (result && result.approved) {
-        console.log(`✅ Role approval: ${result.requestData.roleName} approved for user ${result.requestData.userId} by ${result.approver.tag}`);
+      if (result) {
+        if (result.approved) {
+          console.log(`✅ Role approval: ${result.requestData.roleName} approved for user ${result.requestData.userId} by ${result.approver.tag} (${result.approverType})`);
+        } else if (result.error) {
+          // Send a DM to the user who tried to approve without permission
+          try {
+            await user.send(`❌ **Permission Denied**\n\n${result.error}\n\n**Request Details:**\n• Role: ${result.requestData.roleName}\n• Panel: ${result.requestData.panelName}`);
+          } catch (dmError) {
+            console.log(`Could not send DM to ${user.tag}: ${dmError.message}`);
+          }
+        }
       }
     }
   } catch (error) {

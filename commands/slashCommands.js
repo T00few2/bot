@@ -269,6 +269,12 @@ const commands = [
         .setDescription("Emoji for this role")
         .setRequired(false)
     )
+    .addBooleanOption(option =>
+      option
+        .setName("requires_approval")
+        .setDescription("Whether this role requires approval before being granted")
+        .setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -304,6 +310,46 @@ const commands = [
   new SlashCommandBuilder()
     .setName("list_panels")
     .setDescription("List all role panels in this server (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("set_role_approval")
+    .setDescription("Set approval requirement for a role in a panel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID containing the role")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to modify")
+        .setRequired(true)
+    )
+    .addBooleanOption(option =>
+      option
+        .setName("requires_approval")
+        .setDescription("Whether this role requires approval")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("pending_approvals")
+    .setDescription("View pending role approval requests (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageRoles),
+
+  new SlashCommandBuilder()
+    .setName("setup_approval_channel")
+    .setDescription("Set the channel for role approval requests (admin only)")
+    .addChannelOption(option =>
+      option
+        .setName("channel")
+        .setDescription("Channel for role approval requests")
+        .setRequired(true)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
     
   new SlashCommandBuilder()

@@ -24,6 +24,9 @@ const {
   handleRemovePanelRole,
   handleUpdatePanel,
   handleListPanels,
+  handleSetRoleApproval,
+  handlePendingApprovals,
+  handleSetupApprovalChannel,
 } = require("./roleHandlers");
 const crypto = require("crypto");
 
@@ -168,15 +171,22 @@ async function handleInteractions(interaction) {
           const result = await roleService.toggleUserRole(
             interaction.guild,
             interaction.user.id,
-            roleId
+            roleId,
+            panelId // Pass panelId for approval checking
           );
 
-          const emoji = result.action === "added" ? "✅" : "❌";
-          const actionText = result.action === "added" ? "added" : "removed";
-          
-          await interaction.editReply(
-            `${emoji} Successfully ${actionText} the **${result.roleName}** role from the **${panelConfig.name}** panel!`
-          );
+          if (result.action === "approval_requested") {
+            await interaction.editReply(
+              `🔐 **${result.roleName}** requires approval. ${result.message}`
+            );
+          } else {
+            const emoji = result.action === "added" ? "✅" : "❌";
+            const actionText = result.action === "added" ? "added" : "removed";
+            
+            await interaction.editReply(
+              `${emoji} Successfully ${actionText} the **${result.roleName}** role from the **${panelConfig.name}** panel!`
+            );
+          }
           
         } catch (error) {
           console.error("Error handling panel role toggle:", error);
@@ -273,6 +283,10 @@ async function handleInteractions(interaction) {
       "remove_panel_role": handleRemovePanelRole,
       "update_panel": handleUpdatePanel,
       "list_panels": handleListPanels,
+      // New approval commands
+      "set_role_approval": handleSetRoleApproval,
+      "pending_approvals": handlePendingApprovals,
+      "setup_approval_channel": handleSetupApprovalChannel,
     };
 
     const handler = commandHandlers[commandName];

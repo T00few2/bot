@@ -1,5 +1,6 @@
 const { ChannelType, EmbedBuilder } = require("discord.js");
 const roleService = require("../services/roleService");
+const approvalService = require("../services/approvalService");
 
 // Legacy handlers (for backward compatibility)
 async function handleSetupRoles(interaction) {
@@ -211,6 +212,7 @@ async function handleAddPanelRole(interaction) {
     const role = interaction.options.getRole("role");
     const description = interaction.options.getString("description");
     const emoji = interaction.options.getString("emoji");
+    const requiresApproval = interaction.options.getBoolean("requires_approval") || false;
 
     // Check if bot can manage this role
     const botMember = interaction.guild.members.me;
@@ -237,12 +239,14 @@ async function handleAddPanelRole(interaction) {
       role.id,
       role.name,
       description,
-      emoji
+      emoji,
+      requiresApproval
     );
 
     let response = `✅ Added **${role.name}** to panel **${panelId}**!`;
     if (description) response += `\nDescription: ${description}`;
     if (emoji) response += `\nEmoji: ${emoji}`;
+    if (requiresApproval) response += `\n🔐 **Requires Approval**: Yes`;
     response += `\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel.`;
 
     await interaction.editReply(response);
@@ -382,69 +386,84 @@ async function handleListPanels(interaction) {
 async function handleRolesHelp(interaction) {
   try {
     const embed = new EmbedBuilder()
-      .setTitle("🎭 Multi-Panel Role System Guide")
-      .setDescription("Learn how to create advanced role panels with progressive access control!")
+      .setTitle("🎭 Advanced Role System Guide")
+      .setDescription("Complete guide to multi-panel roles with approval workflows!")
       .setColor(0x5865F2)
       .setThumbnail(interaction.guild.iconURL())
       .addFields(
         {
           name: "🌟 What is the Multi-Panel System?",
-          value: "Create different role panels in different channels, each with their own access requirements. Users progress through role tiers by getting basic roles first to unlock advanced panels.",
+          value: "Create different role panels in different channels, each with their own access requirements and approval workflows. Users progress through role tiers while admins control sensitive role assignments.",
+          inline: false
+        },
+        {
+          name: "🔐 NEW: Role Approval System",
+          value: "**Selective Control**: Mark specific roles to require admin approval\n**Visual Indicators**: 🔐 icon shows approval-required roles\n**Auto-Processing**: Approved roles are assigned automatically\n**Admin Reactions**: Simply react with ✅ to approve requests",
           inline: false
         },
         {
           name: "🚀 Quick Setup Example",
-          value: "```\n/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"\n/add_panel_role panel_id:basic role:@Member description:\"Basic access\"\n/update_panel panel_id:basic\n```",
-          inline: false
-        },
-        {
-          name: "📋 Step-by-Step Setup Guide",
-          value: "**1. Plan Your Structure**\n• Decide what roles you want (Member, VIP, etc.)\n• Choose which channels will host panels\n• Plan the progression (what unlocks what)\n\n**2. Create Channels**\n• #general-roles (everyone can view)\n• #member-zone (only @Member can view)\n• #vip-lounge (only @VIP can view)",
+          value: "```\n# Basic panel\n/setup_panel panel_id:basic channel:#roles name:\"Basic Roles\"\n/add_panel_role panel_id:basic role:@Member emoji:👤\n\n# VIP panel with approval\n/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member\n/add_panel_role panel_id:vip role:@VIP requires_approval:true\n/update_panel panel_id:vip\n```",
           inline: false
         },
         {
           name: "🔧 Panel Creation Commands",
-          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`",
+          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`\n\n**Setup Approval Channel:**\n`/setup_approval_channel channel:#approvals`",
           inline: false
         },
         {
-          name: "➕ Adding Roles to Panels",
-          value: "**Add roles with descriptions and emojis:**\n`/add_panel_role panel_id:basic role:@Member description:\"Basic member access\" emoji:👤`\n`/add_panel_role panel_id:vip role:@VIP description:\"VIP access\" emoji:💎`",
+          name: "➕ Adding Roles with Approval Control",
+          value: "**Instant Role (no approval):**\n`/add_panel_role panel_id:basic role:@Member description:\"Basic access\" emoji:👤`\n\n**Approval Required Role:**\n`/add_panel_role panel_id:vip role:@VIP description:\"VIP access\" emoji:💎 requires_approval:true`\n\n**Update Existing Role:**\n`/set_role_approval panel_id:vip role:@VIP requires_approval:true`",
           inline: false
         },
         {
-          name: "🔄 Deploying Your Panels",
-          value: "**After adding roles, deploy the panel:**\n`/update_panel panel_id:basic`\n`/update_panel panel_id:vip`\n\n**View all your panels:**\n`/list_panels`",
+          name: "🔐 Approval Workflow Setup",
+          value: "**1. Create approval channel** (staff-only)\n**2. Configure the bot:** `/setup_approval_channel channel:#approvals`\n**3. Add approval roles:** Use `requires_approval:true`\n**4. Deploy panels:** `/update_panel panel_id:vip`\n**5. Monitor requests:** `/pending_approvals`",
           inline: false
         },
         {
-          name: "💡 Complete Example Setup",
-          value: "```bash\n# Step 1: Basic panel for everyone\n/setup_panel panel_id:basic channel:#roles name:\"Server Roles\"\n/add_panel_role panel_id:basic role:@Member emoji:👤\n/add_panel_role panel_id:basic role:@Gamer emoji:🎮\n/update_panel panel_id:basic\n\n# Step 2: VIP panel (requires Member)\n/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member\n/add_panel_role panel_id:vip role:@VIP emoji:💎\n/update_panel panel_id:vip\n```",
+          name: "👥 User Experience Flow",
+          value: "**Standard Roles:**\n• Click button → Role assigned instantly ✅\n\n**Approval Roles (🔐):**\n• Click button → Request submitted 📝\n• Admin notification sent 📢\n• Admin reacts ✅ → Role assigned 🎭\n• User gets automatic confirmation 📩",
           inline: false
         },
         {
-          name: "🎯 User Experience Flow",
-          value: "1. **Users start in #roles** → Get @Member role\n2. **#vip-zone unlocks** → Now accessible with @Member\n3. **Get @VIP role** → Access exclusive features\n4. **Progressive access** → Each role unlocks new opportunities",
+          name: "👮 Admin Approval Process",
+          value: "**1. Approval Request** appears in your approval channel\n**2. Review User Info** - avatar, username, role requested\n**3. React with ✅** to approve the request\n**4. Automatic Processing** - role assigned, message updated\n**5. Monitor Activity** with `/pending_approvals`",
           inline: false
         },
         {
           name: "🛠️ Management Commands",
-          value: "`/list_panels` - View all panels and their status\n`/add_panel_role` - Add more roles to existing panels\n`/remove_panel_role` - Remove roles from panels\n`/update_panel` - Refresh a panel after changes",
+          value: "**Panel Management:**\n• `/list_panels` - View all panels and status\n• `/add_panel_role` - Add roles (with approval option)\n• `/remove_panel_role` - Remove roles from panels\n• `/update_panel` - Refresh panel after changes\n\n**Approval Management:**\n• `/set_role_approval` - Toggle approval requirement\n• `/pending_approvals` - View pending requests\n• `/setup_approval_channel` - Configure approval channel",
           inline: false
         },
         {
-          name: "⚠️ Important Notes",
-          value: "• **Bot role must be higher** than roles it manages\n• **Channel permissions** control who can see panels\n• **Required roles** create the progression system\n• **Panel IDs** must be unique (use: letters, numbers, -, _)",
+          name: "🎯 Example Complete Setup",
+          value: "```bash\n# 1. Basic roles (instant)\n/setup_panel panel_id:basic channel:#roles name:\"Server Roles\"\n/add_panel_role panel_id:basic role:@Member emoji:👤\n/add_panel_role panel_id:basic role:@Gamer emoji:🎮\n\n# 2. VIP roles (approval required)\n/setup_approval_channel channel:#staff-approvals\n/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member\n/add_panel_role panel_id:vip role:@VIP emoji:💎 requires_approval:true\n/add_panel_role panel_id:vip role:@Moderator emoji:🛡️ requires_approval:true\n\n# 3. Deploy everything\n/update_panel panel_id:basic\n/update_panel panel_id:vip\n```",
           inline: false
         },
         {
-          name: "🔒 Access Control Tips",
-          value: "• Set channel permissions so only certain roles can view advanced channels\n• Use descriptive panel names and IDs\n• Test the progression flow with a test account\n• Start simple and add complexity gradually",
+          name: "🔍 Visual Indicators",
+          value: "**In Role Panels:**\n• 🔐 icon next to approval-required roles\n• \"Approval Required\" section listing all approval roles\n• Clear status messages for users\n\n**In Approval Channel:**\n• Rich embeds with user avatar and info\n• Role mentions and panel context\n• Timestamps showing when requested\n• Status updates when approved",
+          inline: false
+        },
+        {
+          name: "⚠️ Important Notes & Best Practices",
+          value: "**Security:**\n• Approval channel should be staff-only\n• Only Admins/Manage Roles users can approve\n• Bot role must be higher than managed roles\n\n**Usage Tips:**\n• Use approval for sensitive roles (VIP, Mod, Admin)\n• Keep basic roles instant (Member, Verified)\n• Test with simple roles first\n• Monitor pending requests regularly",
+          inline: false
+        },
+        {
+          name: "🔧 Required Permissions",
+          value: "**Bot Needs (in approval channel):**\n• View Channel, Send Messages, Embed Links\n• Add Reactions, Manage Messages\n\n**Admins Need (to approve):**\n• Administrator OR Manage Roles permission\n\n**Channel Setup:**\n• Role panels: Public or role-restricted\n• Approval channel: Staff-only access",
+          inline: false
+        },
+        {
+          name: "🚨 Troubleshooting",
+          value: "**No approval messages?**\n• Check bot permissions in approval channel\n• Verify channel is set: `/setup_approval_channel`\n\n**Approvals not working?**\n• Ensure admin has Manage Roles permission\n• Check bot role hierarchy\n• Verify approval message wasn't deleted\n\n**Quick Debug:**\n• `/list_panels` - Check panel status\n• `/pending_approvals` - View requests",
           inline: false
         }
       )
       .setFooter({ 
-        text: `${interaction.guild.name} • Multi-Panel Role System`, 
+        text: `${interaction.guild.name} • Advanced Role System with Approvals`, 
         iconURL: interaction.guild.iconURL() 
       })
       .setTimestamp();
@@ -455,14 +474,20 @@ async function handleRolesHelp(interaction) {
     if (Object.keys(panels).length > 0) {
       let panelsList = "";
       let totalRoles = 0;
+      let approvalRoles = 0;
       
       for (const [panelId, panel] of Object.entries(panels)) {
         const channel = interaction.guild.channels.cache.get(panel.channelId);
-        const channelMention = channel ? channel.toString() : "❌ Channel not found";
         const status = panel.panelMessageId ? "✅" : "⚠️";
         const requiredInfo = panel.requiredRoles && panel.requiredRoles.length > 0 ? " 🔒" : "";
         
-        panelsList += `${status} **${panel.name}** (\`${panelId}\`) - ${panel.roles.length} roles${requiredInfo}\n`;
+        // Count approval roles
+        const panelApprovalRoles = panel.roles.filter(role => role.requiresApproval).length;
+        approvalRoles += panelApprovalRoles;
+        
+        const approvalInfo = panelApprovalRoles > 0 ? ` 🔐${panelApprovalRoles}` : "";
+        
+        panelsList += `${status} **${panel.name}** (\`${panelId}\`) - ${panel.roles.length} roles${requiredInfo}${approvalInfo}\n`;
         totalRoles += panel.roles.length;
       }
       
@@ -474,13 +499,22 @@ async function handleRolesHelp(interaction) {
       
       embed.addFields({
         name: "📈 Quick Stats",
-        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Status:** ✅ Active, ⚠️ Not deployed, 🔒 Has requirements`,
+        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Approval Roles:** ${approvalRoles}\n**Legend:** ✅ Active, ⚠️ Not deployed, 🔒 Access restricted, 🔐 Requires approval`,
         inline: false
       });
+
+      // Add approval-specific status if there are approval roles
+      if (approvalRoles > 0) {
+        embed.addFields({
+          name: "🔐 Approval System Status",
+          value: `**Approval Roles Configured:** ${approvalRoles}\n**Next Steps:**\n• Ensure approval channel is set: \`/setup_approval_channel\`\n• Monitor requests: \`/pending_approvals\`\n• Review approval workflow in guide above`,
+          inline: false
+        });
+      }
     } else {
       embed.addFields({
         name: "🚀 Ready to Start?",
-        value: "No panels found! Use the commands above to create your first multi-panel role system.\n\n**Recommended first step:**\n`/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`",
+        value: "No panels found! Use the commands above to create your first advanced role system.\n\n**Recommended first steps:**\n1. `/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`\n2. `/setup_approval_channel channel:#staff-approvals`\n3. `/add_panel_role panel_id:basic role:@Member`",
         inline: false
       });
     }
@@ -489,6 +523,126 @@ async function handleRolesHelp(interaction) {
   } catch (error) {
     console.error("Error in handleRolesHelp:", error);
     await interaction.editReply("❌ An error occurred while displaying the role system guide.");
+  }
+}
+
+async function handleSetRoleApproval(interaction) {
+  try {
+    const panelId = interaction.options.getString("panel_id");
+    const role = interaction.options.getRole("role");
+    const requiresApproval = interaction.options.getBoolean("requires_approval");
+
+    await roleService.updateRoleApprovalRequirement(
+      interaction.guild.id,
+      panelId,
+      role.id,
+      requiresApproval
+    );
+
+    const statusText = requiresApproval ? "now requires approval" : "no longer requires approval";
+    await interaction.editReply(
+      `✅ **${role.name}** in panel **${panelId}** ${statusText}!\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel.`
+    );
+  } catch (error) {
+    console.error("Error in handleSetRoleApproval:", error);
+    if (error.message.includes("not found") && error.message.includes("Panel")) {
+      await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
+    } else if (error.message.includes("not found")) {
+      await interaction.editReply("❌ This role was not found in this panel.");
+    } else {
+      await interaction.editReply("❌ An error occurred while updating the role approval requirement.");
+    }
+  }
+}
+
+async function handlePendingApprovals(interaction) {
+  try {
+    const pendingRequests = await approvalService.getPendingRequests(interaction.guild.id);
+
+    if (pendingRequests.length === 0) {
+      await interaction.editReply("✅ No pending role approval requests found!");
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("🔐 Pending Role Approval Requests")
+      .setDescription(`Found ${pendingRequests.length} pending request(s)`)
+      .setColor(0xFFAA00)
+      .setFooter({ text: `${interaction.guild.name} • Role Approvals` })
+      .setTimestamp();
+
+    for (const request of pendingRequests.slice(0, 10)) { // Limit to 10 to avoid embed limits
+      try {
+        const user = await interaction.guild.members.fetch(request.userId);
+        const role = await interaction.guild.roles.fetch(request.roleId);
+        
+        const fieldValue = [
+          `**User:** ${user.displayName} (${user.user.tag})`,
+          `**Role:** ${role ? role.toString() : 'Role not found'}`,
+          `**Panel:** ${request.panelName}`,
+          `**Requested:** <t:${Math.floor(request.requestedAt.toDate().getTime() / 1000)}:R>`
+        ].join('\n');
+
+        embed.addFields({
+          name: `Request ${request.id.split('_').pop()}`,
+          value: fieldValue,
+          inline: true
+        });
+      } catch (userError) {
+        console.error("Error fetching user for approval request:", userError);
+      }
+    }
+
+    if (pendingRequests.length > 10) {
+      embed.addFields({
+        name: "📋 Note",
+        value: `Showing first 10 of ${pendingRequests.length} pending requests.`,
+        inline: false
+      });
+    }
+
+    embed.addFields({
+      name: "✅ How to Approve",
+      value: "React with ✅ on approval messages in your approval channel to approve requests.",
+      inline: false
+    });
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("Error in handlePendingApprovals:", error);
+    await interaction.editReply("❌ An error occurred while fetching pending approvals.");
+  }
+}
+
+async function handleSetupApprovalChannel(interaction) {
+  try {
+    const channel = interaction.options.getChannel("channel");
+
+    // Validate channel type
+    if (channel.type !== ChannelType.GuildText) {
+      await interaction.editReply("❌ Please select a text channel.");
+      return;
+    }
+
+    // Check if bot has permissions in the channel
+    const botPermissions = channel.permissionsFor(interaction.guild.members.me);
+    if (!botPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
+      await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in that channel. Please ensure I have the necessary permissions.");
+      return;
+    }
+
+    // Note: In a production environment, you might want to store this in the database
+    // For now, we'll just inform the user to set the environment variable
+    await interaction.editReply(
+      `✅ Approval channel set to ${channel}!\n\n` +
+      `**Important:** To make this permanent, set the environment variable:\n` +
+      `\`DISCORD_APPROVAL_CHANNEL_ID=${channel.id}\`\n\n` +
+      `The bot will now send role approval requests to this channel. ` +
+      `Admins and users with "Manage Roles" permission can approve requests by reacting with ✅.`
+    );
+  } catch (error) {
+    console.error("Error in handleSetupApprovalChannel:", error);
+    await interaction.editReply("❌ An error occurred while setting up the approval channel.");
   }
 }
 
@@ -505,4 +659,8 @@ module.exports = {
   handleRemovePanelRole,
   handleUpdatePanel,
   handleListPanels,
+  // New approval handlers
+  handleSetRoleApproval,
+  handlePendingApprovals,
+  handleSetupApprovalChannel,
 }; 

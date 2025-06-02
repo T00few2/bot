@@ -5,6 +5,7 @@ const { setupKeepAliveServer } = require("./services/server");
 const { handleInteractions } = require("./handlers/interactionHandler");
 const { handleGuildMemberAdd } = require("./handlers/memberHandler");
 const { startScheduler } = require("./services/scheduler");
+const approvalService = require("./services/approvalService");
 const { 
   handleMessageCreate, 
   handleMessageReactionAdd, 
@@ -22,7 +23,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,  // Added for welcome messages and role management
     GatewayIntentBits.GuildMessages, // Added for activity stats
-    GatewayIntentBits.GuildMessageReactions, // Added for reaction stats
+    GatewayIntentBits.GuildMessageReactions, // Added for reaction stats and approval reactions
     GatewayIntentBits.GuildVoiceStates, // Added for voice activity stats
     GatewayIntentBits.MessageContent // Added to read message content for stats
   ] 
@@ -44,6 +45,37 @@ const rest = new REST({ version: "10" }).setToken(config.discord.token);
   }
 })();
 
+// Handle approval reactions
+client.on("messageReactionAdd", async (reaction, user) => {
+  // Handle stats collection
+  handleMessageReactionAdd(reaction, user);
+
+  // Handle approval reactions (skip if it's the bot itself)
+  if (user.bot) return;
+
+  try {
+    // If reaction is partial, fetch it
+    if (reaction.partial) {
+      await reaction.fetch();
+    }
+
+    // Check if it's an approval reaction (✅ emoji)
+    if (reaction.emoji.name === "✅") {
+      const result = await approvalService.handleApprovalReaction(
+        reaction.message.id, 
+        user.id, 
+        reaction.message.guild
+      );
+
+      if (result && result.approved) {
+        console.log(`✅ Role approval: ${result.requestData.roleName} approved for user ${result.requestData.userId} by ${result.approver.tag}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error handling approval reaction:", error);
+  }
+});
+
 // Handle all interactions
 client.on("interactionCreate", (interaction) => {
   handleInteractions(interaction);
@@ -55,7 +87,6 @@ client.on("guildMemberAdd", handleGuildMemberAdd);
 
 // Handle activity for stats collection
 client.on("messageCreate", handleMessageCreate);
-client.on("messageReactionAdd", handleMessageReactionAdd);
 client.on("voiceStateUpdate", handleVoiceStateUpdate);
 
 // Bot ready event

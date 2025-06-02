@@ -128,12 +128,49 @@ async function markScheduledMessageSent(scheduleId) {
 function processMessageContent(content, variables = {}) {
   let processed = content;
   
-  // Replace variables like {username}, {server_name}, etc.
+  // Handle built-in variables first
+  const builtInVariables = {
+    random_emoji: getRandomEmoji(),
+    timestamp: Math.floor(Date.now() / 1000),
+    datetime: new Date().toLocaleString(),
+  };
+  
+  // Replace built-in variables
+  Object.entries(builtInVariables).forEach(([key, value]) => {
+    processed = processed.replace(new RegExp(`{${key}}`, 'g'), value);
+  });
+  
+  // Replace custom variables like {username}, {server_name}, etc.
   Object.entries(variables).forEach(([key, value]) => {
     processed = processed.replace(new RegExp(`{${key}}`, 'g'), value);
   });
   
   return processed;
+}
+
+/**
+ * Get a random emoji
+ */
+function getRandomEmoji() {
+  const emojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+    '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+    '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+    '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+    '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈',
+    '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾',
+    '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿',
+    '😾', '🚀', '🌟', '⭐', '✨', '💫', '🔥', '💥', '💯', '👍',
+    '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆',
+    '🖕', '👇', '☝️', '👍', '👎', '👊', '✊', '🤛', '🤜', '👏',
+    '🙌', '👐', '🤲', '🤝', '🙏', '💪', '🦾', '🦿', '🦵', '🦶'
+  ];
+  
+  return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
 module.exports = {

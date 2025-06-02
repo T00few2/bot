@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { db } = require("./firebase");
+const approvalService = require("./approvalService");
 
 class RoleService {
   constructor() {
@@ -92,7 +93,7 @@ class RoleService {
   }
 
   // NEW: Add role to specific panel
-  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null) {
+  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false) {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -114,6 +115,7 @@ class RoleService {
         roleName,
         description,
         emoji,
+        requiresApproval,
         addedAt: new Date()
       });
 
@@ -307,10 +309,21 @@ class RoleService {
     const roleList = roles.map(role => {
       const emoji = role.emoji || "🔹";
       const description = role.description ? ` - ${role.description}` : "";
-      return `${emoji} <@&${role.roleId}>${description}`;
+      const approvalIcon = role.requiresApproval ? " 🔐" : "";
+      return `${emoji} <@&${role.roleId}>${description}${approvalIcon}`;
     }).join("\n");
 
     embed.addFields({ name: "Available Roles", value: roleList });
+
+    // Add approval info if any roles require approval
+    const approvalRoles = roles.filter(role => role.requiresApproval);
+    if (approvalRoles.length > 0) {
+      embed.addFields({ 
+        name: "🔐 Approval Required", 
+        value: `The following roles require approval: ${approvalRoles.map(role => `<@&${role.roleId}>`).join(", ")}`,
+        inline: false 
+      });
+    }
 
     // Add required roles info if any
     if (panelConfig.requiredRoles && panelConfig.requiredRoles.length > 0) {
@@ -361,8 +374,39 @@ class RoleService {
     return { embeds: [embed], components };
   }
 
-  // Toggle role for a user
-  async toggleUserRole(guild, userId, roleId) {
+  // NEW: Update role approval requirement
+  async updateRoleApprovalRequirement(guildId, panelId, roleId, requiresApproval) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      const panel = data.panels[panelId];
+      
+      // Find the role and update it
+      const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
+      if (roleIndex === -1) {
+        throw new Error("Role not found in this panel.");
+      }
+
+      panel.roles[roleIndex].requiresApproval = requiresApproval;
+      panel.updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating role approval requirement:", error);
+      throw error;
+    }
+  }
+
+  // Toggle role for a user (updated to handle approval workflow)
+  async toggleUserRole(guild, userId, roleId, panelId = null) {
     try {
       const member = await guild.members.fetch(userId);
       const role = await guild.roles.fetch(roleId);
@@ -379,13 +423,52 @@ class RoleService {
 
       const hasRole = member.roles.cache.has(roleId);
 
+      // If user is removing the role, proceed immediately
       if (hasRole) {
         await member.roles.remove(roleId);
         return { action: "removed", roleName: role.name };
-      } else {
-        await member.roles.add(roleId);
-        return { action: "added", roleName: role.name };
       }
+
+      // If user is adding the role, check if it requires approval
+      if (panelId) {
+        const panelConfig = await this.getPanelConfig(guild.id, panelId);
+        if (panelConfig) {
+          const roleConfig = panelConfig.roles.find(r => r.roleId === roleId);
+          if (roleConfig && roleConfig.requiresApproval) {
+            // Submit approval request instead of directly adding role
+            const requestId = await approvalService.submitRoleRequest(
+              guild.id,
+              userId,
+              roleId,
+              role.name,
+              panelId,
+              panelConfig.name
+            );
+
+            // Send approval request to approval channel
+            await approvalService.sendApprovalRequest(guild.client, requestId, {
+              guildId: guild.id,
+              userId: userId,
+              roleId: roleId,
+              roleName: role.name,
+              panelId: panelId,
+              panelName: panelConfig.name,
+              requestedAt: new Date()
+            });
+
+            return { 
+              action: "approval_requested", 
+              roleName: role.name,
+              message: "Your request has been submitted for approval. You will receive the role once an admin approves it."
+            };
+          }
+        }
+      }
+
+      // If no approval required, add the role immediately
+      await member.roles.add(roleId);
+      return { action: "added", roleName: role.name };
+
     } catch (error) {
       console.error("Error toggling user role:", error);
       throw error;

@@ -28,6 +28,7 @@ const {
   handlePendingApprovals,
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
+  handleSetRoleApprovalChannel,
   handleMyTeam,
   handleRemoveTeamMember,
 } = require("./roleHandlers");
@@ -426,6 +427,7 @@ async function handleInteractions(interaction) {
       "pending_approvals": handlePendingApprovals,
       "set_team_captain": handleSetTeamCaptain,
       "set_panel_approval_channel": handleSetPanelApprovalChannel,
+      "set_role_approval_channel": handleSetRoleApprovalChannel,
       // NEW: Team Captain Management Commands
       "my_team": handleMyTeam,
       "remove_team_member": handleRemoveTeamMember,

@@ -287,6 +287,12 @@ const commands = [
         .setDescription("Team captain who can approve this role (if approval required)")
         .setRequired(false)
     )
+    .addChannelOption(option =>
+      option
+        .setName("approval_channel")
+        .setDescription("Specific channel for this role's approval requests (optional)")
+        .setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -391,6 +397,30 @@ const commands = [
       option
         .setName("approval_channel")
         .setDescription("Channel for approval requests from this panel")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("set_role_approval_channel")
+    .setDescription("Set the approval channel for a specific role (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID containing the role")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to set approval channel for")
+        .setRequired(true)
+    )
+    .addChannelOption(option =>
+      option
+        .setName("approval_channel")
+        .setDescription("Channel for this role's approval requests")
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),

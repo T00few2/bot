@@ -233,6 +233,7 @@ async function handleAddPanelRole(interaction) {
     const emoji = interaction.options.getString("emoji");
     const requiresApproval = interaction.options.getBoolean("requires_approval") || false;
     const teamCaptain = interaction.options.getUser("team_captain");
+    const approvalChannel = interaction.options.getChannel("approval_channel");
 
     // Check if bot can manage this role
     const botMember = interaction.guild.members.me;
@@ -264,6 +265,20 @@ async function handleAddPanelRole(interaction) {
       }
     }
 
+    // Validate approval channel if provided
+    if (approvalChannel) {
+      if (approvalChannel.type !== ChannelType.GuildText) {
+        await interaction.editReply("❌ Please select a text channel for the approval channel.");
+        return;
+      }
+
+      const approvalPermissions = approvalChannel.permissionsFor(interaction.guild.members.me);
+      if (!approvalPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
+        await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in the approval channel. Please ensure I have the necessary permissions.");
+        return;
+      }
+    }
+
     await roleService.addSelfRoleToPanel(
       interaction.guild.id,
       panelId,
@@ -272,7 +287,8 @@ async function handleAddPanelRole(interaction) {
       description,
       emoji,
       requiresApproval,
-      teamCaptain ? teamCaptain.id : null
+      teamCaptain ? teamCaptain.id : null,
+      approvalChannel ? approvalChannel.id : null
     );
 
     let response = `✅ Added **${role.name}** to panel **${panelId}**!`;
@@ -284,6 +300,9 @@ async function handleAddPanelRole(interaction) {
         response += `\n👨‍✈️ **Team Captain**: ${teamCaptain.displayName} (${teamCaptain.tag})`;
       } else {
         response += `\n👮 **Approver**: Admins only`;
+      }
+      if (approvalChannel) {
+        response += `\n📢 **Approval Channel**: ${approvalChannel}`;
       }
     }
     response += `\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel.`;
@@ -431,85 +450,94 @@ async function handleListPanels(interaction) {
 async function handleRolesHelp(interaction) {
   try {
     const embed = new EmbedBuilder()
-      .setTitle("🎭 Advanced Role System Guide")
-      .setDescription("Complete guide to multi-panel roles with approval workflows!")
+      .setTitle("🎭 Advanced Team Management System Guide")
+      .setDescription("Complete guide to the enhanced role system with team captain management and smart approvals!")
       .setColor(0x5865F2)
       .setThumbnail(interaction.guild.iconURL())
       .addFields(
         {
-          name: "🌟 What is the Multi-Panel System?",
-          value: "Create different role panels in different channels, each with their own access requirements and approval workflows. Users progress through role tiers while admins control sensitive role assignments.",
+          name: "🌟 What's New in the Enhanced System?",
+          value: "**Latest Features (v2.0):**\n• 🔔 **Auto-Notifications** - Users get notified when requests are approved/rejected\n• 🎯 **Smart Buttons** - Same button adapts to show join/leave based on current status\n• 👨‍✈️ **Team Captain Tools** - `/my_team` and `/remove_team_member` commands\n• 📢 **Role-Specific Approval Channels** - Each team can have its own approval channel\n• 🚪 **Enhanced Leave Experience** - Confirmation dialogs and captain notifications",
           inline: false
         },
         {
-          name: "🔐 NEW: Team Captain Approval System",
-          value: "**Perfect for Zwift Racing Teams!** 🚴‍♂️\n**Team Captains**: Assign specific users to approve team join requests\n**Visual Indicators**: 🔐 icon shows approval-required roles\n**Auto-Processing**: Approved roles are assigned automatically\n**Flexible Approval**: Team captains OR admins can approve requests",
+          name: "🔐 NEW: Enhanced Team Captain System",
+          value: "**Perfect for Zwift Racing Teams!** 🚴‍♂️\n\n**Team Captain Powers:**\n• 📋 **View Team**: See all members with `/my_team`\n• 🚪 **Remove Members**: Remove riders with `/remove_team_member`\n• ✅ **Approve Joins**: React to join requests in your team's approval channel\n• 📢 **Dedicated Channels**: Each team can have its own approval channel\n• 🔔 **Auto-Notifications**: Get notified when members leave voluntarily",
           inline: false
         },
         {
-          name: "🚀 Quick Setup Example",
-          value: "```\n# Basic panel\n/setup_panel panel_id:basic channel:#roles name:\"Basic Roles\"\n/add_panel_role panel_id:basic role:@Member emoji:👤\n\n# Team panel with captain approval\n/setup_panel panel_id:teams channel:#team-zone name:\"Racing Teams\" required_role:@Member\n/add_panel_role panel_id:teams role:@TeamA requires_approval:true team_captain:@CaptainA\n/update_panel panel_id:teams\n```",
+          name: "🚀 Quick Setup Example (Racing Teams)",
+          value: "```bash\n# 1. Create teams panel\n/setup_panel panel_id:teams channel:#team-zone name:\"Racing Teams\" required_role:@Verified\n\n# 2. Add teams with captain management\n/add_panel_role panel_id:teams role:@Team-Red emoji:🔴 requires_approval:true team_captain:@CaptainRed approval_channel:#team-red-approvals\n/add_panel_role panel_id:teams role:@Team-Blue emoji:🔵 requires_approval:true team_captain:@CaptainBlue approval_channel:#team-blue-approvals\n\n# 3. Deploy the panel\n/update_panel panel_id:teams\n```",
           inline: false
         },
         {
-          name: "🔧 Panel Creation Commands",
-          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`\n\n**Panel with Approval Channel:**\n`/setup_panel panel_id:teams channel:#team-zone name:\"Racing Teams\" approval_channel:#team-approvals`",
-          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`\n\n**Setup Approval Channel:**\n`/setup_approval_channel channel:#approvals`",
+          name: "🎯 Smart Button Experience (NEW!)",
+          value: "**For Riders:**\n• **Not on team**: Click button → Shows join confirmation with approval info\n• **Already on team**: Click button → Shows leave confirmation with team status\n• **Visual Feedback**: Colors and status indicators show current membership\n• **Smart Actions**: Same button, different behavior based on your roles\n\n**Enhanced Confirmations:**\n• Join requests show team captain and approval channel info\n• Leave confirmations prevent accidental departures\n• All actions provide immediate, clear feedback",
           inline: false
         },
         {
-          name: "➕ Adding Roles with Team Captain Control",
-          value: "**Instant Role (no approval):**\n`/add_panel_role panel_id:basic role:@Member description:\"Basic access\" emoji:👤`\n\n**Team Role with Captain Approval:**\n`/add_panel_role panel_id:teams role:@TeamA description:\"Team A Riders\" emoji:🚴‍♂️ requires_approval:true team_captain:@CaptainA`\n\n**Admin-Only Approval Role:**\n`/add_panel_role panel_id:teams role:@Moderator emoji:🛡️ requires_approval:true`\n\n**Set Team Captain Later:**\n`/set_team_captain panel_id:teams role:@TeamA team_captain:@NewCaptain`",
+          name: "👨‍✈️ Team Captain Management Commands",
+          value: "**📋 View Your Teams:**\n`/my_team` - See all teams you captain\n`/my_team team_role:@Team-Red` - View specific team\n\n**Shows:**\n• Complete member list (up to 20 members)\n• Member Discord names and tags\n• Team stats and member count\n• Management instructions\n\n**🚪 Remove Team Members:**\n`/remove_team_member team_role:@Team-Red member:@RiderName reason:\"Inactive\"`\n\n**Features:**\n• Sends notification to removed member with reason\n• Prevents captains from removing themselves\n• Shows updated team member count\n• Logs action for admin oversight",
           inline: false
         },
         {
-          name: "🔐 Approval Workflow Setup",
-          value: "**1. Create approval channel** (staff-only)\n**2. Configure the bot:** `/setup_approval_channel channel:#approvals`\n**3. Add approval roles:** Use `requires_approval:true`\n**4. Deploy panels:** `/update_panel panel_id:vip`\n**5. Monitor requests:** `/pending_approvals`",
+          name: "📢 Role-Specific Approval Channels (NEW!)",
+          value: "**Why Use This:**\n• Each team gets its own approval channel\n• Team captains only see their team's requests\n• Cleaner, more organized approval workflow\n• Perfect for multiple racing teams\n\n**Setup Examples:**\n```bash\n# Add role with specific approval channel\n/add_panel_role panel_id:teams role:@Team-Red approval_channel:#team-red-approvals team_captain:@CaptainRed\n\n# Change existing role's approval channel\n/set_role_approval_channel panel_id:teams role:@Team-Blue approval_channel:#team-blue-approvals\n```\n\n**Channel Priority:**\n1. Role-specific channel (if set)\n2. Panel-level channel (fallback)\n3. Auto-discovery (channels with 'approval' in name)",
           inline: false
         },
         {
-          name: "👥 Rider Experience Flow",
-          value: "**Standard Roles:**\n• Click button → Role assigned instantly ✅\n\n**Team Roles (🔐):**\n• Click button → Join request submitted 📝\n• Team captain gets notification 📢\n• Captain reacts ✅ → Welcome to the team! 🎭\n• Rider gets automatic confirmation 📩\n\n**🆕 Smart Leave Functionality:**\n• Click team button while already a member → Leave confirmation appears\n• Confirm leave → Instantly removed from team 🚪\n• Team captain gets notified of departure\n• Can rejoin anytime through the same button",
+          name: "🔔 Automatic Notification System (NEW!)",
+          value: "**Riders Get Notified:**\n\n**✅ When Request Approved:**\n• Welcome message with team info\n• Who approved them (captain/admin)\n• Reminder they can leave anytime\n\n**❌ When Request Rejected:**\n• Respectful decline notification\n• Who declined and why (if reason given)\n• Instructions to try again or contact captain\n\n**🚪 When Removed by Captain:**\n• Professional removal notification\n• Reason for removal\n• Reminder they can rejoin if eligible\n\n**👨‍✈️ Captains Get Notified:**\n• When members leave voluntarily\n• Member details and leave timestamp",
           inline: false
         },
         {
-          name: "👨‍✈️ Team Captain Approval Process",
-          value: "**1. Join Request** appears in your approval channel with rider info\n**2. Review Rider** - avatar, username, team requested\n**3. React with ✅** to welcome the rider to your team\n**4. Automatic Processing** - role assigned, message updated\n**5. Monitor Activity** with `/pending_approvals`\n\n*Note: Admins can also approve any request as backup*",
+          name: "🔧 Complete Panel Creation Workflow",
+          value: "**1. Basic Panel (instant roles):**\n```bash\n/setup_panel panel_id:basic channel:#roles name:\"Basic Roles\"\n/add_panel_role panel_id:basic role:@Verified emoji:✅\n/update_panel panel_id:basic\n```\n\n**2. Advanced Panel (role requirements):**\n```bash\n/setup_panel panel_id:advanced channel:#advanced-roles name:\"Advanced Roles\" required_role:@Verified\n/add_panel_role panel_id:advanced role:@Regular emoji:⭐\n/update_panel panel_id:advanced\n```\n\n**3. Team Panel (with captain approval & dedicated channels):**\n```bash\n/setup_panel panel_id:teams channel:#team-selection name:\"Racing Teams\" required_role:@Verified\n/add_panel_role panel_id:teams role:@Team-Red emoji:🔴 requires_approval:true team_captain:@CaptainRed approval_channel:#team-red-approvals\n/update_panel panel_id:teams\n```",
           inline: false
         },
         {
-          name: "🛠️ Management Commands",
-          value: "**Panel Management:**\n• `/list_panels` - View all panels and status\n• `/add_panel_role` - Add roles (with team captain option)\n• `/remove_panel_role` - Remove roles from panels\n• `/update_panel` - Refresh panel after changes\n\n**Team Captain Management:**\n• `/set_team_captain` - Assign team captains to roles\n• `/set_role_approval` - Toggle approval requirement\n• `/pending_approvals` - View pending requests\n• `/set_panel_approval_channel` - Set approval channel for a panel",
+          name: "⚡ Advanced Team Management Setup",
+          value: "**Complete Zwift Racing Team Setup:**\n\n```bash\n# 1. Create team-specific approval channels\n# (Create #team-red-approvals, #team-blue-approvals, etc.)\n\n# 2. Setup teams panel\n/setup_panel panel_id:racing-teams channel:#team-selection name:\"DZR Racing Teams\" required_role:@Verified\n\n# 3. Add teams with full management\n/add_panel_role panel_id:racing-teams role:@Team-Red emoji:🔴 requires_approval:true team_captain:@CaptainRed approval_channel:#team-red-approvals\n/add_panel_role panel_id:racing-teams role:@Team-Blue emoji:🔵 requires_approval:true team_captain:@CaptainBlue approval_channel:#team-blue-approvals\n/add_panel_role panel_id:racing-teams role:@Team-Green emoji:🟢 requires_approval:true team_captain:@CaptainGreen approval_channel:#team-green-approvals\n\n# 4. Deploy the panel\n/update_panel panel_id:racing-teams\n```",
           inline: false
         },
         {
-          name: "🎯 Example Zwift Racing Setup",
-          value: "```bash\n# 1. Basic rider roles (instant)\n/setup_panel panel_id:basic channel:#roles name:\"Rider Roles\"\n/add_panel_role panel_id:basic role:@Verified emoji:✅\n/add_panel_role panel_id:basic role:@Zwifter emoji:🚴‍♂️\n\n# 2. Racing teams (captain approval)\n/setup_panel panel_id:teams channel:#team-selection name:\"Racing Teams\" required_role:@Verified approval_channel:#team-approvals\n/add_panel_role panel_id:teams role:@TeamA emoji:🔴 requires_approval:true team_captain:@CaptainA\n/add_panel_role panel_id:teams role:@TeamB emoji:🔵 requires_approval:true team_captain:@CaptainB\n/add_panel_role panel_id:teams role:@TeamC emoji:🟢 requires_approval:true team_captain:@CaptainC\n\n# 3. Deploy everything\n/update_panel panel_id:basic\n/update_panel panel_id:teams\n```",
+          name: "👥 Enhanced Rider Experience Flow",
+          value: "**Standard Roles (instant):**\n• Click button → Role assigned immediately ✅\n• Green confirmation with role details\n\n**Team Roles (approval required 🔐):**\n• Click button → Smart dialog appears\n• Shows team info, captain, approval channel\n• \"🔐 Request to Join\" → Request submitted\n• Notification: \"Request submitted for team captain approval\"\n• Captain gets notification in team-specific channel\n• Captain reacts ✅ → Auto-approval with welcome message\n• Rider gets \"✅ Welcome to Team!\" notification\n\n**🆕 Leave Team Experience:**\n• Click team button while member → Smart leave dialog\n• Shows current membership status (green)\n• \"🚪 Leave Team\" button with confirmation\n• Captain gets notification when member leaves\n• Can rejoin anytime through same button",
           inline: false
         },
         {
-          name: "🔍 Visual Indicators",
-          value: "**In Role Panels:**\n• 🔐 icon next to approval-required roles\n• \"Approval Required\" section listing all approval roles\n• Team captain assignments shown for each team role\n• Clear status messages for riders\n\n**In Approval Channel:**\n• Rich embeds with rider avatar and info\n• Team role mentions and panel context\n• Team captain mentions for specific approvals\n• Timestamps showing when requested\n• Status updates when approved",
+          name: "👨‍✈️ Enhanced Team Captain Workflow",
+          value: "**Daily Team Management:**\n\n**1. Monitor Join Requests:**\n• Check your team's approval channel (e.g., #team-red-approvals)\n• See rich embed with rider info and avatar\n• React ✅ to approve, ❌ to reject\n• Automatic role assignment and notifications\n\n**2. View Your Team:**\n• `/my_team` - See all teams you captain\n• `/my_team team_role:@Team-Red` - View specific team\n• See complete member list with Discord info\n• Get team stats and member count\n\n**3. Manage Members:**\n• `/remove_team_member team_role:@Team-Red member:@RiderName reason:\"Inactive for 30 days\"`\n• Professional removal with notification to rider\n• Updated team member count\n• Action logged for admin oversight\n\n**4. Stay Informed:**\n• Get notified when members leave voluntarily\n• See member activity and team changes\n• Monitor team growth and engagement",
           inline: false
         },
         {
-          name: "⚠️ Important Notes & Best Practices",
-          value: "**Security:**\n• Approval channel should be staff-only\n• Team captains OR admins can approve requests\n• Bot role must be higher than managed roles\n\n**Team Management Tips:**\n• Assign trusted riders as team captains\n• Use approval for team roles, keep basic roles instant\n• Monitor team join requests regularly\n• Set up clear team selection guidelines",
+          name: "🛠️ All Management Commands",
+          value: "**👮 Admin Commands:**\n• `/setup_panel` - Create new role panels\n• `/add_panel_role` - Add roles (with captain & channel options)\n• `/remove_panel_role` - Remove roles from panels\n• `/update_panel` - Refresh panels after changes\n• `/list_panels` - View all panels and status\n• `/set_team_captain` - Assign team captains\n• `/set_role_approval_channel` - Set role-specific approval channels\n• `/set_panel_approval_channel` - Set panel-level approval channels\n• `/pending_approvals` - View all pending requests\n\n**👨‍✈️ Team Captain Commands:**\n• `/my_team` - View and manage your teams\n• `/remove_team_member` - Remove team members\n• React ✅/❌ in approval channels to approve/reject",
           inline: false
         },
         {
-          name: "🔧 Required Permissions",
-          value: "**Bot Needs (in approval channel):**\n• View Channel, Send Messages, Embed Links\n• Add Reactions, Manage Messages\n\n**Who Can Approve:**\n• Team Captains (for their specific teams)\n• Admins (Administrator OR Manage Roles permission)\n\n**Channel Setup:**\n• Role panels: Public or role-restricted\n• Approval channel: Staff and team captains access",
+          name: "🎨 Visual Indicators & User Experience",
+          value: "**In Role Panels:**\n• 🔐 Icon shows approval-required roles\n• Team captain names displayed for each team\n• 📢 Approval channels shown for each role\n• Color coding: Green (member), Blue (available), Red (restricted)\n\n**In Approval Channels:**\n• Rich embeds with rider avatars and info\n• Team role mentions and panel context\n• Team captain mentions for targeted approvals\n• Clear approve (✅) and reject (❌) reactions\n• Status updates when processed\n\n**Smart Button Interface:**\n• Context-aware button labels and colors\n• \"✅ Join Team\" vs \"🔐 Request to Join\" vs \"🚪 Leave Team\"\n• Immediate visual feedback on all actions\n• Professional confirmation dialogs",
           inline: false
         },
         {
-          name: "🚨 Troubleshooting",
-          value: "**No approval messages?**\n• Check bot permissions in approval channel\n• Verify channel is set: `/set_panel_approval_channel`\n\n**Approvals not working?**\n• Ensure admin has Manage Roles permission\n• Check bot role hierarchy\n• Verify approval message wasn't deleted\n\n**Quick Debug:**\n• `/list_panels` - Check panel status\n• `/pending_approvals` - View requests",
+          name: "🔒 Security & Permission Model",
+          value: "**Role Management Security:**\n• Bot role must be higher than managed roles\n• Team captains can only manage their assigned teams\n• Captains cannot remove themselves (use panel to leave)\n• All removal actions are logged\n\n**Approval Permissions:**\n• Team captains can approve their specific teams\n• Admins can approve any request as backup\n• Role-specific approval channels prevent confusion\n• Panel access can be restricted by required roles\n\n**Channel Security:**\n• Approval channels should be staff/captain-only access\n• Bot needs full permissions in approval channels\n• Role panels can be public or restricted",
+          inline: false
+        },
+        {
+          name: "🚨 Troubleshooting Guide",
+          value: "**No approval messages appearing?**\n• Check bot permissions in approval channel\n• Verify channel is set: `/set_role_approval_channel`\n• Ensure approval channel is accessible\n\n**Approvals not working?**\n• Check bot role hierarchy (must be above managed roles)\n• Verify captain has permission to react\n• Check if approval message still exists\n\n**Smart buttons not working?**\n• Verify panel was updated after role changes\n• Check user has required roles for panel access\n• Ensure bot permissions in panel channel\n\n**Team captain commands failing?**\n• Verify user is assigned as team captain\n• Check role still exists and is manageable\n• Ensure target member actually has the role\n\n**Quick Debug Commands:**\n• `/list_panels` - Check all panel configurations\n• `/pending_approvals` - View stuck requests\n• `/my_team` - Verify captain status",
+          inline: false
+        },
+        {
+          name: "📈 Best Practices for Racing Teams",
+          value: "**Team Organization:**\n• Create dedicated approval channels per team\n• Assign active, trusted members as team captains\n• Use clear team names and emojis (🔴 Team-Red)\n• Set up basic roles before team roles\n\n**Approval Workflow:**\n• Set up role-specific approval channels\n• Train team captains on approval process\n• Monitor pending requests regularly\n• Use reasons when removing members\n\n**User Experience:**\n• Keep panel descriptions clear and helpful\n• Use emojis for visual appeal\n• Set appropriate required roles for access\n• Test the full workflow before going live\n\n**Maintenance:**\n• Review team captain assignments periodically\n• Clean up inactive approval channels\n• Update panel displays after major changes\n• Monitor bot permissions after server changes",
           inline: false
         }
       )
       .setFooter({ 
-        text: `${interaction.guild.name} • Team Captain Role System`, 
+        text: `${interaction.guild.name} • Enhanced Team Management System v2.0`, 
         iconURL: interaction.guild.iconURL() 
       })
       .setTimestamp();
@@ -521,19 +549,28 @@ async function handleRolesHelp(interaction) {
       let panelsList = "";
       let totalRoles = 0;
       let approvalRoles = 0;
+      let teamCaptains = new Set();
+      let roleSpecificChannels = 0;
       
       for (const [panelId, panel] of Object.entries(panels)) {
         const channel = interaction.guild.channels.cache.get(panel.channelId);
         const status = panel.panelMessageId ? "✅" : "⚠️";
         const requiredInfo = panel.requiredRoles && panel.requiredRoles.length > 0 ? " 🔒" : "";
         
-        // Count approval roles
+        // Count various statistics
         const panelApprovalRoles = panel.roles.filter(role => role.requiresApproval).length;
+        const panelCaptains = panel.roles.filter(role => role.teamCaptainId).map(role => role.teamCaptainId);
+        const panelRoleChannels = panel.roles.filter(role => role.roleApprovalChannelId).length;
+        
         approvalRoles += panelApprovalRoles;
+        roleSpecificChannels += panelRoleChannels;
+        panelCaptains.forEach(captain => teamCaptains.add(captain));
         
         const approvalInfo = panelApprovalRoles > 0 ? ` 🔐${panelApprovalRoles}` : "";
+        const captainInfo = panelCaptains.length > 0 ? ` 👨‍✈️${panelCaptains.length}` : "";
+        const channelInfo = panelRoleChannels > 0 ? ` 📢${panelRoleChannels}` : "";
         
-        panelsList += `${status} **${panel.name}** (\`${panelId}\`) - ${panel.roles.length} roles${requiredInfo}${approvalInfo}\n`;
+        panelsList += `${status} **${panel.name}** (\`${panelId}\`) - ${panel.roles.length} roles${requiredInfo}${approvalInfo}${captainInfo}${channelInfo}\n`;
         totalRoles += panel.roles.length;
       }
       
@@ -544,23 +581,41 @@ async function handleRolesHelp(interaction) {
       });
       
       embed.addFields({
-        name: "📈 Quick Stats",
-        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Approval Roles:** ${approvalRoles}\n**Legend:** ✅ Active, ⚠️ Not deployed, 🔒 Access restricted, 🔐 Requires approval`,
+        name: "📈 Enhanced System Stats",
+        value: `**Total Panels:** ${Object.keys(panels).length}\n**Total Roles:** ${totalRoles}\n**Approval Roles:** ${approvalRoles}\n**Team Captains:** ${teamCaptains.size}\n**Role-Specific Channels:** ${roleSpecificChannels}\n\n**Legend:** ✅ Active, ⚠️ Not deployed, 🔒 Access restricted, 🔐 Requires approval, 👨‍✈️ Has captain, 📢 Custom channel`,
         inline: false
       });
 
-      // Add approval-specific status if there are approval roles
+      // Add system status and recommendations
       if (approvalRoles > 0) {
+        const recommendations = [];
+        
+        if (teamCaptains.size === 0) {
+          recommendations.push("• Consider assigning team captains with `/set_team_captain`");
+        }
+        
+        if (roleSpecificChannels === 0 && approvalRoles > 1) {
+          recommendations.push("• Set up role-specific approval channels with `/set_role_approval_channel`");
+        }
+        
+        if (recommendations.length > 0) {
+          embed.addFields({
+            name: "💡 Recommendations",
+            value: recommendations.join("\n"),
+            inline: false
+          });
+        }
+
         embed.addFields({
-          name: "🔐 Approval System Status",
-          value: `**Approval Roles Configured:** ${approvalRoles}\n**Next Steps:**\n• Set approval channels: \`/set_panel_approval_channel\`\n• Monitor requests: \`/pending_approvals\`\n• Review approval workflow in guide above`,
+          name: "🎯 Next Steps for Team Management",
+          value: `**Team Captains:**\n• Use \`/my_team\` to see your teams\n• Monitor your team's approval channel\n• React ✅ to approve new members\n\n**Admins:**\n• Check \`/pending_approvals\` for requests\n• Consider role-specific approval channels\n• Train team captains on new commands`,
           inline: false
         });
       }
     } else {
       embed.addFields({
-        name: "🚀 Ready to Start?",
-        value: "No panels found! Use the commands above to create your first advanced role system.\n\n**Recommended first steps:**\n1. `/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`\n2. For teams: `/setup_panel panel_id:teams channel:#team-channel name:\"Teams\" approval_channel:#team-approvals`\n3. `/add_panel_role panel_id:basic role:@Member`",
+        name: "🚀 Ready to Start Your Enhanced Team System?",
+        value: "No panels found! Use the commands above to create your first advanced team management system.\n\n**🏁 Recommended Racing Team Setup:**\n1. Create team-specific approval channels (#team-red-approvals, etc.)\n2. `/setup_panel panel_id:teams channel:#team-selection name:\"Racing Teams\"`\n3. `/add_panel_role panel_id:teams role:@Team-Red requires_approval:true team_captain:@CaptainRed approval_channel:#team-red-approvals`\n4. Repeat for each team\n5. `/update_panel panel_id:teams`\n\n**✨ Key Benefits:**\n• Automatic approval notifications\n• Smart join/leave buttons\n• Team captain management tools\n• Role-specific approval channels\n• Professional user experience",
         inline: false
       });
     }
@@ -739,6 +794,47 @@ async function handleSetPanelApprovalChannel(interaction) {
       await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
     } else {
       await interaction.editReply("❌ An error occurred while setting the approval channel.");
+    }
+  }
+}
+
+async function handleSetRoleApprovalChannel(interaction) {
+  try {
+    const panelId = interaction.options.getString("panel_id");
+    const role = interaction.options.getRole("role");
+    const approvalChannel = interaction.options.getChannel("approval_channel");
+
+    // Validate approval channel
+    if (approvalChannel.type !== ChannelType.GuildText) {
+      await interaction.editReply("❌ Please select a text channel for the approval channel.");
+      return;
+    }
+
+    // Check bot permissions in approval channel
+    const approvalPermissions = approvalChannel.permissionsFor(interaction.guild.members.me);
+    if (!approvalPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
+      await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in the approval channel. Please ensure I have the necessary permissions.");
+      return;
+    }
+
+    await roleService.updateRoleApprovalChannel(
+      interaction.guild.id,
+      panelId,
+      role.id,
+      approvalChannel.id
+    );
+
+    await interaction.editReply(
+      `✅ Approval channel for **${role.name}** in panel **${panelId}** set to ${approvalChannel}!\n\nAll approval requests for this role will now be sent to this channel.`
+    );
+  } catch (error) {
+    console.error("Error in handleSetRoleApprovalChannel:", error);
+    if (error.message.includes("not found") && error.message.includes("Panel")) {
+      await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
+    } else if (error.message.includes("not found")) {
+      await interaction.editReply("❌ This role was not found in this panel.");
+    } else {
+      await interaction.editReply("❌ An error occurred while setting the role approval channel.");
     }
   }
 }
@@ -978,6 +1074,7 @@ module.exports = {
   handlePendingApprovals,
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
+  handleSetRoleApprovalChannel,
   // NEW: Team Captain Management Functions
   handleMyTeam,
   handleRemoveTeamMember,

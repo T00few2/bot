@@ -94,7 +94,7 @@ class RoleService {
   }
 
   // NEW: Add role to specific panel
-  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null) {
+  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null, roleApprovalChannelId = null) {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -118,6 +118,7 @@ class RoleService {
         emoji,
         requiresApproval,
         teamCaptainId, // The specific user who can approve this role
+        roleApprovalChannelId, // Role-specific approval channel
         addedAt: new Date()
       });
 
@@ -328,6 +329,18 @@ class RoleService {
         approvalInfo += `\n\n**Team Captains:**`;
         teamCaptainRoles.forEach(role => {
           approvalInfo += `\n• <@&${role.roleId}> → <@${role.teamCaptainId}>`;
+          if (role.roleApprovalChannelId) {
+            approvalInfo += ` (📢 <#${role.roleApprovalChannelId}>)`;
+          }
+        });
+      }
+
+      // Add roles with specific approval channels but no team captain
+      const channelOnlyRoles = approvalRoles.filter(role => role.roleApprovalChannelId && !role.teamCaptainId);
+      if (channelOnlyRoles.length > 0) {
+        approvalInfo += `\n\n**Admin Approval Channels:**`;
+        channelOnlyRoles.forEach(role => {
+          approvalInfo += `\n• <@&${role.roleId}> → 📢 <#${role.roleApprovalChannelId}>`;
         });
       }
       
@@ -504,7 +517,7 @@ class RoleService {
               panelId: panelId,
               panelName: panelConfig.name,
               teamCaptainId: roleConfig.teamCaptainId,
-              approvalChannelId: panelConfig.approvalChannelId, // Pass panel's approval channel
+              approvalChannelId: roleConfig.roleApprovalChannelId || panelConfig.approvalChannelId, // Use role-specific or fallback to panel-level
               requestedAt: new Date()
             });
 
@@ -593,6 +606,37 @@ class RoleService {
       return true;
     } catch (error) {
       console.error("Error updating panel approval channel:", error);
+      throw error;
+    }
+  }
+
+  // NEW: Update approval channel for a specific role
+  async updateRoleApprovalChannel(guildId, panelId, roleId, approvalChannelId) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      const panel = data.panels[panelId];
+      
+      // Find the role and update it
+      const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
+      if (roleIndex === -1) {
+        throw new Error("Role not found in this panel.");
+      }
+
+      panel.roles[roleIndex].roleApprovalChannelId = approvalChannelId;
+      panel.updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating role approval channel:", error);
       throw error;
     }
   }

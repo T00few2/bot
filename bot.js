@@ -59,21 +59,24 @@ client.on("messageReactionAdd", async (reaction, user) => {
       await reaction.fetch();
     }
 
-    // Check if it's an approval reaction (✅ emoji)
-    if (reaction.emoji.name === "✅") {
+    // Check if it's an approval or rejection reaction
+    if (reaction.emoji.name === "✅" || reaction.emoji.name === "❌") {
       const result = await approvalService.handleApprovalReaction(
         reaction.message.id, 
         user.id, 
-        reaction.message.guild
+        reaction.message.guild,
+        reaction.emoji.name
       );
 
       if (result) {
         if (result.approved) {
           console.log(`✅ Role approval: ${result.requestData.roleName} approved for user ${result.requestData.userId} by ${result.approver.tag} (${result.approverType})`);
+        } else if (result.rejected) {
+          console.log(`❌ Role rejection: ${result.requestData.roleName} rejected for user ${result.requestData.userId} by ${result.approver.tag} (${result.approverType})`);
         } else if (result.error) {
-          // Send a DM to the user who tried to approve without permission
+          // Send a DM to the user who tried to approve/reject without permission
           try {
-            await user.send(`❌ **Permission Denied**\n\n${result.error}\n\n**Request Details:**\n• Role: ${result.requestData.roleName}\n• Panel: ${result.requestData.panelName}`);
+            await user.send(`❌ **Permission Denied**\n\n${result.error}\n\n**Request Details:**\n• Role: ${result.requestData.roleName}`);
           } catch (dmError) {
             console.log(`Could not send DM to ${user.tag}: ${dmError.message}`);
           }

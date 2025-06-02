@@ -45,7 +45,6 @@ class ApprovalService {
       .addFields([
         { name: "🚴 Rider", value: `${user.displayName} (${user.user.tag})`, inline: true },
         { name: "🏆 Team Role", value: `<@&${requestData.roleId}>`, inline: true },
-        { name: "📋 Panel", value: requestData.panelName, inline: true },
         { name: "🕐 Requested At", value: `<t:${Math.floor(requestData.requestedAt.getTime() / 1000)}:R>`, inline: false }
       ])
       .setThumbnail(user.user.displayAvatarURL())
@@ -55,12 +54,12 @@ class ApprovalService {
     if (requestData.teamCaptainId) {
       embed.addFields([
         { name: "👨‍✈️ Team Captain", value: `<@${requestData.teamCaptainId}>`, inline: true },
-        { name: "✅ How to Approve", value: `<@${requestData.teamCaptainId}> React with ✅ to approve this rider for your team!\n\n*Admins can also approve this request.*`, inline: false }
+        { name: "✅ How to Approve", value: `<@${requestData.teamCaptainId}> React with ✅ to approve or ❌ to reject this rider!\n\n*Admins can also approve or reject this request.*`, inline: false }
       ]);
-      embed.setFooter({ text: `${guild.name} • Team Captain: React ✅ to approve` });
+      embed.setFooter({ text: `${guild.name} • Team Captain: React ✅ to approve, ❌ to reject` });
     } else {
       embed.addFields([
-        { name: "✅ How to Approve", value: "Admins: React with ✅ to approve this request.", inline: false }
+        { name: "✅ How to Approve", value: "Admins: React with ✅ to approve or ❌ to reject this request.", inline: false }
       ]);
       embed.setFooter({ text: `${guild.name} • Admin approval required` });
     }
@@ -101,8 +100,9 @@ class ApprovalService {
       const embed = this.createApprovalEmbed(requestData, guild, user);
       const message = await approvalChannel.send({ embeds: [embed] });
 
-      // Add approve reaction
+      // Add approve and reject reactions
       await message.react("✅");
+      await message.react("❌");
 
       // Update request with message ID
       await db.collection(this.collection).doc(requestId).update({
@@ -118,7 +118,7 @@ class ApprovalService {
   }
 
   // Handle approval reaction
-  async handleApprovalReaction(messageId, userId, guild) {
+  async handleApprovalReaction(messageId, userId, guild, emoji) {
     try {
       // Find the approval request by message ID
       const snapshot = await db.collection(this.collection)
@@ -135,40 +135,56 @@ class ApprovalService {
       const requestData = requestDoc.data();
       const requestId = requestDoc.id;
 
-      // Check if user has permission to approve
+      // Check if user has permission to approve/reject
       const approver = await guild.members.fetch(userId);
-      let hasApprovalPermission = false;
+      let hasPermission = false;
       let approverType = "";
 
       // Check if user is the designated team captain
       if (requestData.teamCaptainId && userId === requestData.teamCaptainId) {
-        hasApprovalPermission = true;
+        hasPermission = true;
         approverType = "Team Captain";
       }
       // Check if user is an admin (fallback)
       else if (approver.permissions.has("Administrator") || approver.permissions.has("ManageRoles")) {
-        hasApprovalPermission = true;
+        hasPermission = true;
         approverType = "Admin";
       }
 
-      if (!hasApprovalPermission) {
-        // Send ephemeral message if someone without permission tries to approve
+      if (!hasPermission) {
+        // Send ephemeral message if someone without permission tries to approve/reject
         return { 
-          approved: false, 
-          error: "You don't have permission to approve this request. Only the team captain or admins can approve.",
+          approved: false,
+          rejected: false,
+          error: "You don't have permission to approve or reject this request. Only the team captain or admins can approve/reject.",
           requestData 
         };
       }
 
-      // Approve the request
-      await this.approveRequest(requestId, userId, guild, approverType);
+      // Handle approval or rejection based on emoji
+      if (emoji === "✅") {
+        // Approve the request
+        await this.approveRequest(requestId, userId, guild, approverType);
+        return {
+          approved: true,
+          rejected: false,
+          requestData,
+          approver: approver.user,
+          approverType
+        };
+      } else if (emoji === "❌") {
+        // Reject the request
+        await this.rejectRequest(requestId, userId, guild, approverType);
+        return {
+          approved: false,
+          rejected: true,
+          requestData,
+          approver: approver.user,
+          approverType
+        };
+      }
 
-      return {
-        approved: true,
-        requestData,
-        approver: approver.user,
-        approverType
-      };
+      return null; // Unknown emoji
     } catch (error) {
       console.error("Error handling approval reaction:", error);
       throw error;
@@ -241,6 +257,67 @@ class ApprovalService {
       return true;
     } catch (error) {
       console.error("Error approving request:", error);
+      throw error;
+    }
+  }
+
+  // Reject a role request
+  async rejectRequest(requestId, rejecterId, guild, rejecterType = "Admin") {
+    try {
+      const requestDoc = await db.collection(this.collection).doc(requestId).get();
+      
+      if (!requestDoc.exists) {
+        throw new Error("Request not found");
+      }
+
+      const requestData = requestDoc.data();
+
+      if (requestData.status !== "pending") {
+        throw new Error("Request is not pending");
+      }
+
+      // Get the user and role for validation
+      const member = await guild.members.fetch(requestData.userId);
+      const role = await guild.roles.fetch(requestData.roleId);
+
+      if (!role) {
+        throw new Error("Role not found");
+      }
+
+      // Update request status to rejected
+      await db.collection(this.collection).doc(requestId).update({
+        status: "rejected",
+        rejectedBy: rejecterId,
+        rejectedAt: new Date(),
+        rejecterType: rejecterType
+      });
+
+      // Update the approval message
+      const approvalChannel = await guild.channels.fetch(requestData.approvalChannelId);
+      if (approvalChannel && requestData.approvalMessageId) {
+        try {
+          const approvalMessage = await approvalChannel.messages.fetch(requestData.approvalMessageId);
+          const rejecter = await guild.members.fetch(rejecterId);
+          
+          const updatedEmbed = EmbedBuilder.from(approvalMessage.embeds[0])
+            .setColor(0xFF0000)
+            .setTitle("❌ Team Join Request - REJECTED")
+            .addFields([
+              { name: "👮 Rejected By", value: `${rejecter.displayName} (${rejecter.user.tag})`, inline: true },
+              { name: "❌ Rejected At", value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
+              { name: "👥 Rejecter Type", value: rejecterType, inline: true }
+            ]);
+
+          await approvalMessage.edit({ embeds: [updatedEmbed] });
+          await approvalMessage.reactions.removeAll();
+        } catch (messageError) {
+          console.error("Error updating approval message:", messageError);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error rejecting request:", error);
       throw error;
     }
   }

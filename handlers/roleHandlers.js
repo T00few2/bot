@@ -159,6 +159,7 @@ async function handleSetupPanel(interaction) {
     const name = interaction.options.getString("name");
     const description = interaction.options.getString("description");
     const requiredRole = interaction.options.getRole("required_role");
+    const approvalChannel = interaction.options.getChannel("approval_channel");
     
     // Validate panel ID format
     if (!/^[a-zA-Z0-9_-]+$/.test(panelId)) {
@@ -168,15 +169,29 @@ async function handleSetupPanel(interaction) {
 
     // Validate channel type
     if (channel.type !== ChannelType.GuildText) {
-      await interaction.editReply("❌ Please select a text channel.");
+      await interaction.editReply("❌ Please select a text channel for the panel.");
       return;
     }
 
-    // Check if bot has permissions in the channel
+    // Check if bot has permissions in the panel channel
     const botPermissions = channel.permissionsFor(interaction.guild.members.me);
     if (!botPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks"])) {
       await interaction.editReply("❌ I don't have permission to send messages in that channel. Please ensure I have Send Messages, View Channel, and Embed Links permissions.");
       return;
+    }
+
+    // Validate approval channel if provided
+    if (approvalChannel) {
+      if (approvalChannel.type !== ChannelType.GuildText) {
+        await interaction.editReply("❌ Please select a text channel for the approval channel.");
+        return;
+      }
+
+      const approvalPermissions = approvalChannel.permissionsFor(interaction.guild.members.me);
+      if (!approvalPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
+        await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in the approval channel. Please ensure I have the necessary permissions.");
+        return;
+      }
     }
 
     const requiredRoles = requiredRole ? [requiredRole.id] : [];
@@ -186,13 +201,17 @@ async function handleSetupPanel(interaction) {
       channel.id, 
       name, 
       description, 
-      requiredRoles
+      requiredRoles,
+      approvalChannel ? approvalChannel.id : null
     );
     
     if (success) {
       let response = `✅ Role panel **${name}** (ID: \`${panelId}\`) has been setup for ${channel}!`;
       if (requiredRole) {
         response += `\n🔒 Required role: ${requiredRole}`;
+      }
+      if (approvalChannel) {
+        response += `\n🔐 Approval channel: ${approvalChannel}`;
       }
       response += `\n\nNext steps:\n1. Use \`/add_panel_role panel_id:${panelId}\` to add roles\n2. Use \`/update_panel panel_id:${panelId}\` to create the panel`;
       
@@ -381,6 +400,12 @@ async function handleListPanels(interaction) {
         fieldValue += `**Required:** ${requiredRolesList}\n`;
       }
       
+      if (panel.approvalChannelId) {
+        const approvalChannel = interaction.guild.channels.cache.get(panel.approvalChannelId);
+        const approvalChannelMention = approvalChannel ? approvalChannel.toString() : "❌ Channel not found";
+        fieldValue += `**Approval Channel:** ${approvalChannelMention}\n`;
+      }
+      
       fieldValue += `**Status:** ${panel.panelMessageId ? "✅ Active" : "⚠️ Not deployed"}`;
       
       embed.addFields({
@@ -428,6 +453,7 @@ async function handleRolesHelp(interaction) {
         },
         {
           name: "🔧 Panel Creation Commands",
+          value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`\n\n**Panel with Approval Channel:**\n`/setup_panel panel_id:teams channel:#team-zone name:\"Racing Teams\" approval_channel:#team-approvals`",
           value: "**Basic Panel (no requirements):**\n`/setup_panel panel_id:basic channel:#general-roles name:\"Basic Roles\"`\n\n**Advanced Panel (requires role):**\n`/setup_panel panel_id:vip channel:#vip-zone name:\"VIP Roles\" required_role:@Member`\n\n**Setup Approval Channel:**\n`/setup_approval_channel channel:#approvals`",
           inline: false
         },
@@ -453,12 +479,12 @@ async function handleRolesHelp(interaction) {
         },
         {
           name: "🛠️ Management Commands",
-          value: "**Panel Management:**\n• `/list_panels` - View all panels and status\n• `/add_panel_role` - Add roles (with team captain option)\n• `/remove_panel_role` - Remove roles from panels\n• `/update_panel` - Refresh panel after changes\n\n**Team Captain Management:**\n• `/set_team_captain` - Assign team captains to roles\n• `/set_role_approval` - Toggle approval requirement\n• `/pending_approvals` - View pending requests\n• `/setup_approval_channel` - Configure approval channel",
+          value: "**Panel Management:**\n• `/list_panels` - View all panels and status\n• `/add_panel_role` - Add roles (with team captain option)\n• `/remove_panel_role` - Remove roles from panels\n• `/update_panel` - Refresh panel after changes\n\n**Team Captain Management:**\n• `/set_team_captain` - Assign team captains to roles\n• `/set_role_approval` - Toggle approval requirement\n• `/pending_approvals` - View pending requests\n• `/set_panel_approval_channel` - Set approval channel for a panel",
           inline: false
         },
         {
           name: "🎯 Example Zwift Racing Setup",
-          value: "```bash\n# 1. Basic rider roles (instant)\n/setup_panel panel_id:basic channel:#roles name:\"Rider Roles\"\n/add_panel_role panel_id:basic role:@Verified emoji:✅\n/add_panel_role panel_id:basic role:@Zwifter emoji:🚴‍♂️\n\n# 2. Racing teams (captain approval)\n/setup_approval_channel channel:#team-approvals\n/setup_panel panel_id:teams channel:#team-selection name:\"Racing Teams\" required_role:@Verified\n/add_panel_role panel_id:teams role:@TeamA emoji:🔴 requires_approval:true team_captain:@CaptainA\n/add_panel_role panel_id:teams role:@TeamB emoji:🔵 requires_approval:true team_captain:@CaptainB\n/add_panel_role panel_id:teams role:@TeamC emoji:🟢 requires_approval:true team_captain:@CaptainC\n\n# 3. Deploy everything\n/update_panel panel_id:basic\n/update_panel panel_id:teams\n```",
+          value: "```bash\n# 1. Basic rider roles (instant)\n/setup_panel panel_id:basic channel:#roles name:\"Rider Roles\"\n/add_panel_role panel_id:basic role:@Verified emoji:✅\n/add_panel_role panel_id:basic role:@Zwifter emoji:🚴‍♂️\n\n# 2. Racing teams (captain approval)\n/setup_panel panel_id:teams channel:#team-selection name:\"Racing Teams\" required_role:@Verified approval_channel:#team-approvals\n/add_panel_role panel_id:teams role:@TeamA emoji:🔴 requires_approval:true team_captain:@CaptainA\n/add_panel_role panel_id:teams role:@TeamB emoji:🔵 requires_approval:true team_captain:@CaptainB\n/add_panel_role panel_id:teams role:@TeamC emoji:🟢 requires_approval:true team_captain:@CaptainC\n\n# 3. Deploy everything\n/update_panel panel_id:basic\n/update_panel panel_id:teams\n```",
           inline: false
         },
         {
@@ -478,7 +504,7 @@ async function handleRolesHelp(interaction) {
         },
         {
           name: "🚨 Troubleshooting",
-          value: "**No approval messages?**\n• Check bot permissions in approval channel\n• Verify channel is set: `/setup_approval_channel`\n\n**Approvals not working?**\n• Ensure admin has Manage Roles permission\n• Check bot role hierarchy\n• Verify approval message wasn't deleted\n\n**Quick Debug:**\n• `/list_panels` - Check panel status\n• `/pending_approvals` - View requests",
+          value: "**No approval messages?**\n• Check bot permissions in approval channel\n• Verify channel is set: `/set_panel_approval_channel`\n\n**Approvals not working?**\n• Ensure admin has Manage Roles permission\n• Check bot role hierarchy\n• Verify approval message wasn't deleted\n\n**Quick Debug:**\n• `/list_panels` - Check panel status\n• `/pending_approvals` - View requests",
           inline: false
         }
       )
@@ -527,14 +553,14 @@ async function handleRolesHelp(interaction) {
       if (approvalRoles > 0) {
         embed.addFields({
           name: "🔐 Approval System Status",
-          value: `**Approval Roles Configured:** ${approvalRoles}\n**Next Steps:**\n• Ensure approval channel is set: \`/setup_approval_channel\`\n• Monitor requests: \`/pending_approvals\`\n• Review approval workflow in guide above`,
+          value: `**Approval Roles Configured:** ${approvalRoles}\n**Next Steps:**\n• Set approval channels: \`/set_panel_approval_channel\`\n• Monitor requests: \`/pending_approvals\`\n• Review approval workflow in guide above`,
           inline: false
         });
       }
     } else {
       embed.addFields({
         name: "🚀 Ready to Start?",
-        value: "No panels found! Use the commands above to create your first advanced role system.\n\n**Recommended first steps:**\n1. `/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`\n2. `/setup_approval_channel channel:#staff-approvals`\n3. `/add_panel_role panel_id:basic role:@Member`",
+        value: "No panels found! Use the commands above to create your first advanced role system.\n\n**Recommended first steps:**\n1. `/setup_panel panel_id:basic channel:#your-roles-channel name:\"Basic Roles\"`\n2. For teams: `/setup_panel panel_id:teams channel:#team-channel name:\"Teams\" approval_channel:#team-approvals`\n3. `/add_panel_role panel_id:basic role:@Member`",
         inline: false
       });
     }
@@ -644,38 +670,6 @@ async function handlePendingApprovals(interaction) {
   }
 }
 
-async function handleSetupApprovalChannel(interaction) {
-  try {
-    const channel = interaction.options.getChannel("channel");
-
-    // Validate channel type
-    if (channel.type !== ChannelType.GuildText) {
-      await interaction.editReply("❌ Please select a text channel.");
-      return;
-    }
-
-    // Check if bot has permissions in the channel
-    const botPermissions = channel.permissionsFor(interaction.guild.members.me);
-    if (!botPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
-      await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in that channel. Please ensure I have the necessary permissions.");
-      return;
-    }
-
-    // Note: In a production environment, you might want to store this in the database
-    // For now, we'll just inform the user to set the environment variable
-    await interaction.editReply(
-      `✅ Team approval channel set to ${channel}!\n\n` +
-      `**Important:** To make this permanent, set the environment variable:\n` +
-      `\`DISCORD_APPROVAL_CHANNEL_ID=${channel.id}\`\n\n` +
-      `The bot will now send team join requests to this channel. ` +
-      `Team captains and admins can approve requests by reacting with ✅.`
-    );
-  } catch (error) {
-    console.error("Error in handleSetupApprovalChannel:", error);
-    await interaction.editReply("❌ An error occurred while setting up the approval channel.");
-  }
-}
-
 async function handleSetTeamCaptain(interaction) {
   try {
     const panelId = interaction.options.getString("panel_id");
@@ -712,6 +706,43 @@ async function handleSetTeamCaptain(interaction) {
   }
 }
 
+async function handleSetPanelApprovalChannel(interaction) {
+  try {
+    const panelId = interaction.options.getString("panel_id");
+    const approvalChannel = interaction.options.getChannel("approval_channel");
+
+    // Validate approval channel
+    if (approvalChannel.type !== ChannelType.GuildText) {
+      await interaction.editReply("❌ Please select a text channel for the approval channel.");
+      return;
+    }
+
+    // Check bot permissions in approval channel
+    const approvalPermissions = approvalChannel.permissionsFor(interaction.guild.members.me);
+    if (!approvalPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
+      await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in the approval channel. Please ensure I have the necessary permissions.");
+      return;
+    }
+
+    await roleService.updatePanelApprovalChannel(
+      interaction.guild.id,
+      panelId,
+      approvalChannel.id
+    );
+
+    await interaction.editReply(
+      `✅ Approval channel for panel **${panelId}** set to ${approvalChannel}!\n\nAll approval requests for roles in this panel will now be sent to this channel.`
+    );
+  } catch (error) {
+    console.error("Error in handleSetPanelApprovalChannel:", error);
+    if (error.message.includes("not found")) {
+      await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
+    } else {
+      await interaction.editReply("❌ An error occurred while setting the approval channel.");
+    }
+  }
+}
+
 module.exports = {
   // Legacy handlers
   handleSetupRoles,
@@ -728,6 +759,6 @@ module.exports = {
   // New approval handlers
   handleSetRoleApproval,
   handlePendingApprovals,
-  handleSetupApprovalChannel,
   handleSetTeamCaptain,
+  handleSetPanelApprovalChannel,
 }; 

@@ -50,7 +50,7 @@ class RoleService {
   }
 
   // NEW: Setup a specific role panel
-  async setupRolePanel(guildId, panelId, channelId, name, description = null, requiredRoles = []) {
+  async setupRolePanel(guildId, panelId, channelId, name, description = null, requiredRoles = [], approvalChannelId = null) {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -70,6 +70,7 @@ class RoleService {
         roles: data.panels[panelId]?.roles || [],
         panelMessageId: null,
         requiredRoles: requiredRoles,
+        approvalChannelId: approvalChannelId,
         order: Object.keys(data.panels).length + 1,
         createdAt: data.panels[panelId]?.createdAt || new Date(),
         updatedAt: new Date()
@@ -467,6 +468,7 @@ class RoleService {
               panelId: panelId,
               panelName: panelConfig.name,
               teamCaptainId: roleConfig.teamCaptainId,
+              approvalChannelId: panelConfig.approvalChannelId, // Pass panel's approval channel
               requestedAt: new Date()
             });
 
@@ -532,6 +534,29 @@ class RoleService {
       return true;
     } catch (error) {
       console.error("Error updating role team captain:", error);
+      throw error;
+    }
+  }
+
+  // NEW: Update approval channel for a panel
+  async updatePanelApprovalChannel(guildId, panelId, approvalChannelId) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      data.panels[panelId].approvalChannelId = approvalChannelId;
+      data.panels[panelId].updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating panel approval channel:", error);
       throw error;
     }
   }

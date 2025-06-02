@@ -22,30 +22,24 @@ The Team Captain Approval System extends your Discord role service to support te
 
 ## Setup Instructions
 
-### 1. Environment Configuration
+### 1. Create Team Panels with Approval Channels
 
-Add the approval channel ID to your environment variables (optional but recommended):
+You can specify the approval channel when creating a panel, or set it later for existing panels.
 
-```env
-DISCORD_APPROVAL_CHANNEL_ID=your_approval_channel_id_here
+**Create panel with approval channel:**
+```
+/setup_panel panel_id:teams channel:#team-selection name:"Racing Teams" approval_channel:#team-approvals
 ```
 
-If not set, the bot will automatically find a channel with "approval" in the name.
-
-### 2. Create a Team Approval Channel
-
-Create a dedicated channel for team join requests:
-
+**Or set approval channel for existing panel:**
 ```
-/setup_approval_channel channel:#team-approvals
+/set_panel_approval_channel panel_id:teams approval_channel:#team-approvals
 ```
 
-This channel should be:
-- Visible to team captains and admins
-- Not visible to regular riders (to avoid spam)
-- Have the bot with proper permissions
+**Automatic detection fallback:**
+If no approval channel is set for a panel, the bot will automatically look for a channel with "approval" in the name (e.g., #team-approvals, #role-approvals).
 
-### 3. Set Up Team Roles with Captains
+### 2. Set Up Team Roles with Captains
 
 When adding team roles to panels, specify the team captain:
 
@@ -59,13 +53,15 @@ Or assign team captains to existing roles:
 /set_team_captain panel_id:teams role:@TeamA team_captain:@CaptainA
 ```
 
-### 4. Update Your Panels
+### 3. Update Your Panels
 
 After adding team captain assignments, refresh your panels:
 
 ```
 /update_panel panel_id:teams
 ```
+
+**Note:** Each panel can have its own approval channel, giving you flexibility to organize different types of approvals in different channels.
 
 ## Usage Workflow
 
@@ -95,8 +91,8 @@ After adding team captain assignments, refresh your panels:
 
 ### Setup Commands
 
-- `/setup_approval_channel channel:#channel` - Set the team approval channel
-- `/setup_panel panel_id:teams channel:#channel name:"Racing Teams"` - Create team panel
+- `/setup_panel panel_id:teams channel:#channel name:"Racing Teams" approval_channel:#approvals` - Create team panel with approval channel
+- `/set_panel_approval_channel panel_id:teams approval_channel:#channel` - Set approval channel for existing panel
 
 ### Team Management Commands
 
@@ -391,4 +387,14 @@ Create progression paths through teams:
 /add_panel_role panel_id:competitive role:@ProTeam team_captain:@ProCaptain requires_approval:true
 ```
 
-This system provides the perfect foundation for managing Zwift racing teams with appropriate oversight and community involvement! 
+This system provides the perfect foundation for managing Zwift racing teams with appropriate oversight and community involvement!
+
+## Simplified Setup
+
+This approval system requires **no environment variables** and **no global configuration**. Simply:
+
+1. **Create panels** with approval channels directly in the setup command
+2. **Set approval channels** per panel as needed using `/set_panel_approval_channel`
+3. **Fallback detection** automatically finds channels with "approval" in the name
+
+Each panel manages its own approval workflow independently, making it easy to organize different types of teams and roles! 

@@ -239,6 +239,12 @@ const commands = [
         .setDescription("Role required to access this panel (optional)")
         .setRequired(false)
     )
+    .addChannelOption(option =>
+      option
+        .setName("approval_channel")
+        .setDescription("Channel for approval requests from this panel (optional)")
+        .setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -372,19 +378,26 @@ const commands = [
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
-    .setName("setup_approval_channel")
-    .setDescription("Set the channel for role approval requests (admin only)")
+    .setName("set_panel_approval_channel")
+    .setDescription("Set the approval channel for a specific panel (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID to set approval channel for")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
     .addChannelOption(option =>
       option
-        .setName("channel")
-        .setDescription("Channel for role approval requests")
+        .setName("approval_channel")
+        .setDescription("Channel for approval requests from this panel")
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("roles_help")
-    .setDescription("Show the role system guide and instructions")
+    .setDescription("Show the role system guide and instructions"),
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

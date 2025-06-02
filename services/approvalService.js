@@ -1,6 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { db } = require("./firebase");
-const config = require("../config/config");
 
 class ApprovalService {
   constructor() {
@@ -75,15 +74,19 @@ class ApprovalService {
       const guild = await client.guilds.fetch(requestData.guildId);
       const user = await guild.members.fetch(requestData.userId);
       
-      // Get approval channel - first try config, then fallback to finding one
+      // Get approval channel from request data (panel-specific)
       let approvalChannel = null;
       
-      if (config.discord.approvalChannelId) {
-        approvalChannel = await guild.channels.fetch(config.discord.approvalChannelId);
+      if (requestData.approvalChannelId) {
+        try {
+          approvalChannel = await guild.channels.fetch(requestData.approvalChannelId);
+        } catch (error) {
+          console.error("Could not fetch panel-specific approval channel:", error);
+        }
       }
       
+      // Fallback - find a channel with "approval" in the name
       if (!approvalChannel) {
-        // Try to find a channel with "approval" in the name
         approvalChannel = guild.channels.cache.find(
           channel => channel.name.toLowerCase().includes("approval") && 
                     channel.isTextBased() &&
@@ -92,7 +95,7 @@ class ApprovalService {
       }
 
       if (!approvalChannel) {
-        throw new Error("No approval channel found. Please set DISCORD_APPROVAL_CHANNEL_ID in your environment variables or create a channel with 'approval' in the name.");
+        throw new Error("No approval channel found. Please set an approval channel for this panel using `/set_panel_approval_channel` or create a channel with 'approval' in the name.");
       }
 
       const embed = this.createApprovalEmbed(requestData, guild, user);

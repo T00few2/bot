@@ -1,4 +1,4 @@
-const { ActionRowBuilder, StringSelectMenuBuilder, InteractionResponseType, MessageFlags } = require("discord.js");
+const { ActionRowBuilder, StringSelectMenuBuilder, InteractionResponseType, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const roleService = require("../services/roleService");
 const { linkUserZwiftId, getTodaysClubStats } = require("../services/firebase");
 const { handlePublishButton, ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
@@ -168,7 +168,47 @@ async function handleInteractions(interaction) {
             return;
           }
           
-          // Proceed with role toggle
+          // Check if user already has this role
+          const member = await interaction.guild.members.fetch(interaction.user.id);
+          const hasRole = member.roles.cache.has(roleId);
+          const role = await interaction.guild.roles.fetch(roleId);
+          
+          if (!role) {
+            await interaction.editReply("❌ Role not found.");
+            return;
+          }
+
+          // If user has the role, ask for confirmation to leave
+          if (hasRole) {
+            // Create a confirmation panel for leaving
+            const embed = new EmbedBuilder()
+              .setTitle("🚪 Leave Team")
+              .setDescription(`Are you sure you want to leave **${role.name}**?`)
+              .setColor(0xFF6B6B)
+              .addFields([
+                { name: "🏆 Team", value: role.toString(), inline: true },
+                { name: "ℹ️ Note", value: "You can rejoin this team anytime through the role panel.", inline: false }
+              ])
+              .setFooter({ text: `${interaction.guild.name} • Team Management` })
+              .setTimestamp();
+
+            const confirmButton = new ButtonBuilder()
+              .setCustomId(`confirm_leave_${panelId}_${roleId}`)
+              .setLabel("🚪 Confirm Leave")
+              .setStyle(ButtonStyle.Danger);
+
+            const cancelButton = new ButtonBuilder()
+              .setCustomId(`cancel_leave_${panelId}_${roleId}`)
+              .setLabel("❌ Cancel")
+              .setStyle(ButtonStyle.Secondary);
+
+            const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+
+            await interaction.editReply({ embeds: [embed], components: [row] });
+            return;
+          }
+
+          // If user doesn't have the role, proceed with join/approval logic
           const result = await roleService.toggleUserRole(
             interaction.guild,
             interaction.user.id,
@@ -180,13 +220,12 @@ async function handleInteractions(interaction) {
             await interaction.editReply(
               `🔐 **${result.roleName}** requires approval. ${result.message}`
             );
-          } else {
-            const emoji = result.action === "added" ? "✅" : "❌";
-            const actionText = result.action === "added" ? "added" : "removed";
-            
+          } else if (result.action === "added") {
             await interaction.editReply(
-              `${emoji} Successfully ${actionText} the **${result.roleName}** role from the **${panelConfig.name}** panel!`
+              `✅ **Welcome to ${result.roleName}!**\n\nYou have successfully joined the team. You can leave anytime by clicking the role button again.`
             );
+          } else {
+            await interaction.editReply(`❌ Error: ${result.message || 'Unknown error occurred'}`);
           }
           
         } catch (error) {
@@ -212,6 +251,47 @@ async function handleInteractions(interaction) {
           await interaction.editReply(`${emoji} Successfully ${actionText} the **${result.roleName}** role!`);
         } catch (error) {
           console.error("Error handling legacy role toggle:", error);
+          await interaction.editReply(`❌ Error: ${error.message}`);
+        }
+        return;
+      }
+    }
+
+    // Handle leave confirmation buttons
+    if (interaction.isButton() && (interaction.customId.startsWith("confirm_leave_") || interaction.customId.startsWith("cancel_leave_"))) {
+      const parts = interaction.customId.split("_");
+      
+      if (parts.length === 4) {
+        const action = parts[1]; // "leave"
+        const panelId = parts[2];
+        const roleId = parts[3];
+        
+        try {
+          await interaction.deferReply({ ephemeral: true });
+
+          if (interaction.customId.startsWith("cancel_leave_")) {
+            await interaction.editReply("❌ Leave operation cancelled. You remain on the team.");
+            return;
+          }
+
+          // Confirm leave - proceed with role removal
+          const result = await roleService.toggleUserRole(
+            interaction.guild,
+            interaction.user.id,
+            roleId,
+            panelId
+          );
+
+          if (result.action === "removed") {
+            await interaction.editReply(
+              `🚪 **You have left the team!**\n\nYou are no longer a member of **${result.roleName}**. You can rejoin anytime through the role panel.`
+            );
+          } else {
+            await interaction.editReply(`❌ Error: ${result.message || 'Could not leave team'}`);
+          }
+          
+        } catch (error) {
+          console.error("Error handling leave confirmation:", error);
           await interaction.editReply(`❌ Error: ${error.message}`);
         }
         return;

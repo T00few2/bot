@@ -436,9 +436,45 @@ class RoleService {
 
       const hasRole = member.roles.cache.has(roleId);
 
-      // If user is removing the role, proceed immediately
+      // If user is removing the role, proceed immediately with notifications
       if (hasRole) {
         await member.roles.remove(roleId);
+
+        // Notify team captain if one is assigned
+        if (panelId) {
+          try {
+            const panelConfig = await this.getPanelConfig(guild.id, panelId);
+            if (panelConfig) {
+              const roleConfig = panelConfig.roles.find(r => r.roleId === roleId);
+              if (roleConfig && roleConfig.teamCaptainId) {
+                try {
+                  const captain = await guild.members.fetch(roleConfig.teamCaptainId);
+                  
+                  const leaveEmbed = new EmbedBuilder()
+                    .setTitle("🚪 Team Member Left")
+                    .setDescription("A rider has left your team")
+                    .setColor(0xFFA500)
+                    .addFields([
+                      { name: "🚴 Rider", value: `${member.displayName} (${member.user.tag})`, inline: true },
+                      { name: "🏆 Team", value: `<@&${roleId}>`, inline: true },
+                      { name: "📋 Panel", value: panelConfig.name, inline: true },
+                      { name: "🕐 Left At", value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: false }
+                    ])
+                    .setThumbnail(member.user.displayAvatarURL())
+                    .setFooter({ text: `${guild.name} • Team Management` })
+                    .setTimestamp();
+
+                  await captain.send({ embeds: [leaveEmbed] });
+                } catch (dmError) {
+                  console.log(`Could not send leave notification to team captain: ${dmError.message}`);
+                }
+              }
+            }
+          } catch (configError) {
+            console.log(`Could not get panel config for leave notification: ${configError.message}`);
+          }
+        }
+
         return { action: "removed", roleName: role.name };
       }
 

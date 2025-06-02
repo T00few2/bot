@@ -469,7 +469,7 @@ async function handleRolesHelp(interaction) {
         },
         {
           name: "👥 Rider Experience Flow",
-          value: "**Standard Roles:**\n• Click button → Role assigned instantly ✅\n\n**Team Roles (🔐):**\n• Click button → Join request submitted 📝\n• Team captain gets notification 📢\n• Captain reacts ✅ → Welcome to the team! 🎭\n• Rider gets automatic confirmation 📩",
+          value: "**Standard Roles:**\n• Click button → Role assigned instantly ✅\n\n**Team Roles (🔐):**\n• Click button → Join request submitted 📝\n• Team captain gets notification 📢\n• Captain reacts ✅ → Welcome to the team! 🎭\n• Rider gets automatic confirmation 📩\n\n**🆕 Smart Leave Functionality:**\n• Click team button while already a member → Leave confirmation appears\n• Confirm leave → Instantly removed from team 🚪\n• Team captain gets notified of departure\n• Can rejoin anytime through the same button",
           inline: false
         },
         {

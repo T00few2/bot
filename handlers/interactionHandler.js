@@ -178,54 +178,64 @@ async function handleInteractions(interaction) {
             return;
           }
 
-          // If user has the role, ask for confirmation to leave
-          if (hasRole) {
-            // Create a confirmation panel for leaving
-            const embed = new EmbedBuilder()
-              .setTitle("🚪 Leave Team")
-              .setDescription(`Are you sure you want to leave **${role.name}**?`)
-              .setColor(0xFF6B6B)
-              .addFields([
-                { name: "🏆 Team", value: role.toString(), inline: true },
-                { name: "ℹ️ Note", value: "You can rejoin this team anytime through the role panel.", inline: false }
-              ])
-              .setFooter({ text: `${interaction.guild.name} • Team Management` })
-              .setTimestamp();
+          // Always show a personalized response with appropriate buttons
+          const embed = new EmbedBuilder()
+            .setTitle(`🎭 ${role.name}`)
+            .setDescription(hasRole ? `You are currently a member of **${role.name}**` : `Join **${role.name}**?`)
+            .setColor(hasRole ? 0x00FF00 : 0x5865F2)
+            .addFields([
+              { name: "🏆 Team", value: role.toString(), inline: true },
+              { name: "👤 Your Status", value: hasRole ? "✅ Member" : "⭕ Not a member", inline: true }
+            ])
+            .setFooter({ text: `${interaction.guild.name} • Team Management` })
+            .setTimestamp();
 
-            const confirmButton = new ButtonBuilder()
+          if (hasRole) {
+            // User has the role - show leave option
+            embed.addFields([
+              { name: "ℹ️ Leave Team", value: "You can leave this team anytime. You'll be able to rejoin through the role panel.", inline: false }
+            ]);
+
+            const leaveButton = new ButtonBuilder()
               .setCustomId(`confirm_leave_${panelId}_${roleId}`)
-              .setLabel("🚪 Confirm Leave")
+              .setLabel("🚪 Leave Team")
               .setStyle(ButtonStyle.Danger);
 
             const cancelButton = new ButtonBuilder()
               .setCustomId(`cancel_leave_${panelId}_${roleId}`)
+              .setLabel("❌ Stay")
+              .setStyle(ButtonStyle.Secondary);
+
+            const row = new ActionRowBuilder().addComponents(leaveButton, cancelButton);
+            await interaction.editReply({ embeds: [embed], components: [row] });
+          } else {
+            // User doesn't have the role - show join option
+            const roleConfig = panelConfig.roles.find(r => r.roleId === roleId);
+            const requiresApproval = roleConfig?.requiresApproval || false;
+            const teamCaptainId = roleConfig?.teamCaptainId;
+
+            if (requiresApproval) {
+              embed.addFields([
+                { name: "🔐 Approval Required", value: teamCaptainId ? `This team requires approval from the team captain <@${teamCaptainId}>` : "This role requires admin approval", inline: false }
+              ]);
+            } else {
+              embed.addFields([
+                { name: "✅ Instant Join", value: "You'll be added to this team immediately", inline: false }
+              ]);
+            }
+
+            const joinButton = new ButtonBuilder()
+              .setCustomId(`confirm_join_${panelId}_${roleId}`)
+              .setLabel(requiresApproval ? "🔐 Request to Join" : "✅ Join Team")
+              .setStyle(requiresApproval ? ButtonStyle.Secondary : ButtonStyle.Success);
+
+            const cancelButton = new ButtonBuilder()
+              .setCustomId(`cancel_join_${panelId}_${roleId}`)
               .setLabel("❌ Cancel")
               .setStyle(ButtonStyle.Secondary);
 
-            const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
-
+            const row = new ActionRowBuilder().addComponents(joinButton, cancelButton);
             await interaction.editReply({ embeds: [embed], components: [row] });
-            return;
-          }
-
-          // If user doesn't have the role, proceed with join/approval logic
-          const result = await roleService.toggleUserRole(
-            interaction.guild,
-            interaction.user.id,
-            roleId,
-            panelId // Pass panelId for approval checking
-          );
-
-          if (result.action === "approval_requested") {
-            await interaction.editReply(
-              `🔐 **${result.roleName}** requires approval. ${result.message}`
-            );
-          } else if (result.action === "added") {
-            await interaction.editReply(
-              `✅ **Welcome to ${result.roleName}!**\n\nYou have successfully joined the team. You can leave anytime by clicking the role button again.`
-            );
-          } else {
-            await interaction.editReply(`❌ Error: ${result.message || 'Unknown error occurred'}`);
           }
           
         } catch (error) {
@@ -292,6 +302,51 @@ async function handleInteractions(interaction) {
           
         } catch (error) {
           console.error("Error handling leave confirmation:", error);
+          await interaction.editReply(`❌ Error: ${error.message}`);
+        }
+        return;
+      }
+    }
+
+    // Handle join confirmation buttons
+    if (interaction.isButton() && (interaction.customId.startsWith("confirm_join_") || interaction.customId.startsWith("cancel_join_"))) {
+      const parts = interaction.customId.split("_");
+      
+      if (parts.length === 4) {
+        const action = parts[1]; // "join"
+        const panelId = parts[2];
+        const roleId = parts[3];
+        
+        try {
+          await interaction.deferReply({ ephemeral: true });
+
+          if (interaction.customId.startsWith("cancel_join_")) {
+            await interaction.editReply("❌ Join operation cancelled.");
+            return;
+          }
+
+          // Confirm join - proceed with role addition or approval request
+          const result = await roleService.toggleUserRole(
+            interaction.guild,
+            interaction.user.id,
+            roleId,
+            panelId
+          );
+
+          if (result.action === "approval_requested") {
+            await interaction.editReply(
+              `🔐 **Join request submitted!**\n\n${result.message}\n\nYou'll receive a notification when your request is processed.`
+            );
+          } else if (result.action === "added") {
+            await interaction.editReply(
+              `✅ **Welcome to ${result.roleName}!**\n\nYou have successfully joined the team. You can leave anytime by clicking the role button again.`
+            );
+          } else {
+            await interaction.editReply(`❌ Error: ${result.message || 'Could not join team'}`);
+          }
+          
+        } catch (error) {
+          console.error("Error handling join confirmation:", error);
           await interaction.editReply(`❌ Error: ${error.message}`);
         }
         return;

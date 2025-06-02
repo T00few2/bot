@@ -223,6 +223,29 @@ class ApprovalService {
       // Add the role to the user
       await member.roles.add(requestData.roleId);
 
+      // Send approval notification to the user
+      try {
+        const approver = await guild.members.fetch(approverId);
+        
+        const approvalEmbed = new EmbedBuilder()
+          .setTitle("✅ Team Join Request Approved!")
+          .setDescription("Welcome to your new team!")
+          .setColor(0x00FF00)
+          .addFields([
+            { name: "🏆 Team", value: `<@&${requestData.roleId}>`, inline: true },
+            { name: "🏠 Server", value: guild.name, inline: true },
+            { name: "👮 Approved By", value: `${approver.displayName} (${approverType})`, inline: true },
+            { name: "🎉 Welcome!", value: "You have been successfully added to the team. You can leave anytime by clicking the role button again.", inline: false }
+          ])
+          .setThumbnail(guild.iconURL())
+          .setFooter({ text: `${guild.name} • Team Management` })
+          .setTimestamp();
+
+        await member.send({ embeds: [approvalEmbed] });
+      } catch (dmError) {
+        console.log(`Could not send approval notification to ${member.user.tag}: ${dmError.message}`);
+      }
+
       // Update request status
       await db.collection(this.collection).doc(requestId).update({
         status: "approved",
@@ -282,6 +305,29 @@ class ApprovalService {
 
       if (!role) {
         throw new Error("Role not found");
+      }
+
+      // Send rejection notification to the user
+      try {
+        const rejecter = await guild.members.fetch(rejecterId);
+        
+        const rejectionEmbed = new EmbedBuilder()
+          .setTitle("❌ Team Join Request Declined")
+          .setDescription("Your team join request was not approved")
+          .setColor(0xFF6B6B)
+          .addFields([
+            { name: "🏆 Team", value: `<@&${requestData.roleId}>`, inline: true },
+            { name: "🏠 Server", value: guild.name, inline: true },
+            { name: "👮 Declined By", value: `${rejecter.displayName} (${rejecterType})`, inline: true },
+            { name: "ℹ️ Next Steps", value: "You can submit a new request anytime by clicking the role button again. Consider reaching out to the team captain if you have questions.", inline: false }
+          ])
+          .setThumbnail(guild.iconURL())
+          .setFooter({ text: `${guild.name} • Team Management` })
+          .setTimestamp();
+
+        await member.send({ embeds: [rejectionEmbed] });
+      } catch (dmError) {
+        console.log(`Could not send rejection notification to ${member.user.tag}: ${dmError.message}`);
       }
 
       // Update request status to rejected

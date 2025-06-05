@@ -292,7 +292,7 @@ class RoleService {
   // NEW: Create role panel for specific panel with access checks
   createRolePanelForPanel(roles, guildName, panelConfig, userHasAccess = true) {
     const embed = new EmbedBuilder()
-      .setTitle(`🎭 ${panelConfig.name}`)
+      .setTitle(`🔑 ${panelConfig.name}`)
       .setDescription(panelConfig.description || "Click the buttons below to add or remove roles!")
       .setColor(userHasAccess ? 0x5865F2 : 0xFF6B6B)
       .setFooter({ text: `${guildName} • ${panelConfig.name}` })

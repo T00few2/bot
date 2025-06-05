@@ -342,7 +342,7 @@ class RoleService {
       }
       
       embed.addFields({ 
-        name: "🔐 Team Approval Required", 
+        name: `\n\n🔐 Team Approval Required`, 
         value: approvalInfo,
         inline: false 
       });

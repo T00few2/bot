@@ -94,7 +94,7 @@ class RoleService {
   }
 
   // NEW: Add role to specific panel
-  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null, roleApprovalChannelId = null) {
+  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null, roleApprovalChannelId = null, buttonColor = 'Secondary') {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -119,6 +119,7 @@ class RoleService {
         requiresApproval,
         teamCaptainId, // The specific user who can approve this role
         roleApprovalChannelId, // Role-specific approval channel
+        buttonColor, // Individual button color for this role
         addedAt: new Date()
       });
 
@@ -371,10 +372,28 @@ class RoleService {
       const rowRoles = roles.slice(i, i + maxButtonsPerRow);
 
       for (const role of rowRoles) {
+        // Determine button style from role's buttonColor setting
+        let buttonStyle = ButtonStyle.Secondary; // Default fallback
+        switch (role.buttonColor) {
+          case 'Primary':
+            buttonStyle = ButtonStyle.Primary;
+            break;
+          case 'Success':
+            buttonStyle = ButtonStyle.Success;
+            break;
+          case 'Danger':
+            buttonStyle = ButtonStyle.Danger;
+            break;
+          case 'Secondary':
+          default:
+            buttonStyle = ButtonStyle.Secondary;
+            break;
+        }
+
         const button = new ButtonBuilder()
           .setCustomId(`role_toggle_${panelConfig.panelId || 'default'}_${role.roleId}`)
           .setLabel(role.roleName)
-          .setStyle(ButtonStyle.Secondary);
+          .setStyle(buttonStyle);
 
         if (role.emoji) {
           // Check if it's a custom emoji or unicode
@@ -636,6 +655,43 @@ class RoleService {
       return true;
     } catch (error) {
       console.error("Error updating role approval channel:", error);
+      throw error;
+    }
+  }
+
+  // NEW: Update button color for a specific role
+  async updateRoleButtonColor(guildId, panelId, roleId, buttonColor) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      const panel = data.panels[panelId];
+      
+      // Find the role and update it
+      const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
+      if (roleIndex === -1) {
+        throw new Error("Role not found in this panel.");
+      }
+
+      // Validate button color
+      const validColors = ['Primary', 'Secondary', 'Success', 'Danger'];
+      if (!validColors.includes(buttonColor)) {
+        throw new Error(`Invalid button color. Must be one of: ${validColors.join(', ')}`);
+      }
+
+      panel.roles[roleIndex].buttonColor = buttonColor;
+      panel.updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating role button color:", error);
       throw error;
     }
   }

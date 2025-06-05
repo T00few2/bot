@@ -293,6 +293,18 @@ const commands = [
         .setDescription("Specific channel for this role's approval requests (optional)")
         .setRequired(false)
     )
+    .addStringOption(option =>
+      option
+        .setName("button_color")
+        .setDescription("Button color in Discord (Default: Gray)")
+        .setRequired(false)
+        .addChoices(
+          { name: 'Gray (Secondary)', value: 'Secondary' },
+          { name: 'Blue (Primary)', value: 'Primary' },
+          { name: 'Green (Success)', value: 'Success' },
+          { name: 'Red (Danger)', value: 'Danger' }
+        )
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -422,6 +434,36 @@ const commands = [
         .setName("approval_channel")
         .setDescription("Channel for this role's approval requests")
         .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("set_role_button_color")
+    .setDescription("Set the button color for a specific role (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID containing the role")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to set button color for")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("button_color")
+        .setDescription("Button color in Discord")
+        .setRequired(true)
+        .addChoices(
+          { name: 'Gray (Secondary)', value: 'Secondary' },
+          { name: 'Blue (Primary)', value: 'Primary' },
+          { name: 'Green (Success)', value: 'Success' },
+          { name: 'Red (Danger)', value: 'Danger' }
+        )
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 

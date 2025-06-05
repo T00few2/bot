@@ -29,6 +29,7 @@ const {
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
   handleSetRoleApprovalChannel,
+  handleSetRoleButtonColor,
   handleMyTeam,
   handleRemoveTeamMember,
 } = require("./roleHandlers");
@@ -428,6 +429,7 @@ async function handleInteractions(interaction) {
       "set_team_captain": handleSetTeamCaptain,
       "set_panel_approval_channel": handleSetPanelApprovalChannel,
       "set_role_approval_channel": handleSetRoleApprovalChannel,
+      "set_role_button_color": handleSetRoleButtonColor,
       // NEW: Team Captain Management Commands
       "my_team": handleMyTeam,
       "remove_team_member": handleRemoveTeamMember,

@@ -234,6 +234,7 @@ async function handleAddPanelRole(interaction) {
     const requiresApproval = interaction.options.getBoolean("requires_approval") || false;
     const teamCaptain = interaction.options.getUser("team_captain");
     const approvalChannel = interaction.options.getChannel("approval_channel");
+    const buttonColor = interaction.options.getString("button_color") || "Secondary";
 
     // Check if bot can manage this role
     const botMember = interaction.guild.members.me;
@@ -288,12 +289,14 @@ async function handleAddPanelRole(interaction) {
       emoji,
       requiresApproval,
       teamCaptain ? teamCaptain.id : null,
-      approvalChannel ? approvalChannel.id : null
+      approvalChannel ? approvalChannel.id : null,
+      buttonColor
     );
 
     let response = `✅ Added **${role.name}** to panel **${panelId}**!`;
     if (description) response += `\nDescription: ${description}`;
     if (emoji) response += `\nEmoji: ${emoji}`;
+    if (buttonColor !== "Secondary") response += `\nButton Color: ${buttonColor}`;
     if (requiresApproval) {
       response += `\n🔐 **Requires Approval**: Yes`;
       if (teamCaptain) {
@@ -759,23 +762,15 @@ async function handleSetRoleApprovalChannel(interaction) {
       return;
     }
 
-    // Check bot permissions in approval channel
     const approvalPermissions = approvalChannel.permissionsFor(interaction.guild.members.me);
     if (!approvalPermissions.has(["SendMessages", "ViewChannel", "EmbedLinks", "AddReactions"])) {
       await interaction.editReply("❌ I don't have permission to send messages, view channel, embed links, or add reactions in the approval channel. Please ensure I have the necessary permissions.");
       return;
     }
 
-    await roleService.updateRoleApprovalChannel(
-      interaction.guild.id,
-      panelId,
-      role.id,
-      approvalChannel.id
-    );
+    await roleService.updateRoleApprovalChannel(interaction.guild.id, panelId, role.id, approvalChannel.id);
 
-    await interaction.editReply(
-      `✅ Approval channel for **${role.name}** in panel **${panelId}** set to ${approvalChannel}!\n\nAll approval requests for this role will now be sent to this channel.`
-    );
+    await interaction.editReply(`✅ Set approval channel for **${role.name}** in panel **${panelId}** to ${approvalChannel}!\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel.`);
   } catch (error) {
     console.error("Error in handleSetRoleApprovalChannel:", error);
     if (error.message.includes("not found") && error.message.includes("Panel")) {
@@ -783,7 +778,37 @@ async function handleSetRoleApprovalChannel(interaction) {
     } else if (error.message.includes("not found")) {
       await interaction.editReply("❌ This role was not found in this panel.");
     } else {
-      await interaction.editReply("❌ An error occurred while setting the role approval channel.");
+      await interaction.editReply("❌ An error occurred while setting the approval channel.");
+    }
+  }
+}
+
+async function handleSetRoleButtonColor(interaction) {
+  try {
+    const panelId = interaction.options.getString("panel_id");
+    const role = interaction.options.getRole("role");
+    const buttonColor = interaction.options.getString("button_color");
+
+    await roleService.updateRoleButtonColor(interaction.guild.id, panelId, role.id, buttonColor);
+
+    const colorNames = {
+      'Primary': 'Blue (Primary)',
+      'Secondary': 'Gray (Secondary)',
+      'Success': 'Green (Success)',
+      'Danger': 'Red (Danger)'
+    };
+
+    await interaction.editReply(`✅ Set button color for **${role.name}** in panel **${panelId}** to **${colorNames[buttonColor]}**!\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel.`);
+  } catch (error) {
+    console.error("Error in handleSetRoleButtonColor:", error);
+    if (error.message.includes("not found") && error.message.includes("Panel")) {
+      await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
+    } else if (error.message.includes("not found")) {
+      await interaction.editReply("❌ This role was not found in this panel.");
+    } else if (error.message.includes("Invalid button color")) {
+      await interaction.editReply("❌ Invalid button color specified.");
+    } else {
+      await interaction.editReply("❌ An error occurred while setting the button color.");
     }
   }
 }
@@ -1024,6 +1049,7 @@ module.exports = {
   handleSetTeamCaptain,
   handleSetPanelApprovalChannel,
   handleSetRoleApprovalChannel,
+  handleSetRoleButtonColor,
   // NEW: Team Captain Management Functions
   handleMyTeam,
   handleRemoveTeamMember,

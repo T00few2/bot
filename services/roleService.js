@@ -317,40 +317,37 @@ class RoleService {
     }).join("\n");
 
     embed.addFields({ name: "Available Roles", value: roleList });
-    /*
+    
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
-      let approvalInfo = `The following roles require approval: ${approvalRoles.map(role => `<@&${role.roleId}>`).join(", ")}`;
+      let approvalInfo = `The following teams require approval for joining:`;
       
       // Add team captain info if any roles have specific captains
       const teamCaptainRoles = approvalRoles.filter(role => role.teamCaptainId);
       if (teamCaptainRoles.length > 0) {
-        approvalInfo += `\n\n**Team Captains:**`;
+        approvalInfo += `\n\n**🏆 Teams with Captains:**`;
         teamCaptainRoles.forEach(role => {
-          approvalInfo += `\n• <@&${role.roleId}> → <@${role.teamCaptainId}>`;
-          //if (role.roleApprovalChannelId) {
-            //approvalInfo += ` (📢 <#${role.roleApprovalChannelId}>)`;
-          //}
+          approvalInfo += `\n• **${role.roleName}** → Captain: <@${role.teamCaptainId}>`;
         });
       }
 
-      // Add roles with specific approval channels but no team captain
-      const channelOnlyRoles = approvalRoles.filter(role => role.roleApprovalChannelId && !role.teamCaptainId);
-      if (channelOnlyRoles.length > 0) {
-        approvalInfo += `\n\n**Admin Approval Channels:**`;
-        channelOnlyRoles.forEach(role => {
-          approvalInfo += `\n• <@&${role.roleId}> → 📢 <#${role.roleApprovalChannelId}>`;
+      // Add roles without team captains
+      const noTeamCaptainRoles = approvalRoles.filter(role => !role.teamCaptainId);
+      if (noTeamCaptainRoles.length > 0) {
+        approvalInfo += `\n\n**🔐 Admin Approval Required:**`;
+        noTeamCaptainRoles.forEach(role => {
+          approvalInfo += `\n• **${role.roleName}**`;
         });
       }
       
       embed.addFields({ 
-        name: "🔐 Approval Required", 
+        name: "🔐 Team Approval Required", 
         value: approvalInfo,
         inline: false 
       });
     }
-    */
+    
     // Add required roles info if any
     if (panelConfig.requiredRoles && panelConfig.requiredRoles.length > 0) {
       const requiredRolesList = panelConfig.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ");

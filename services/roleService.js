@@ -313,7 +313,7 @@ class RoleService {
     const roleList = roles.map(role => {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
-      return `<@&${role.roleId}>${description}${approvalIcon}`;
+      return `${role.roleName}${description}${approvalIcon}`;
     }).join("\n");
 
     embed.addFields({ name: "Available Roles", value: roleList });

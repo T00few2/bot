@@ -229,7 +229,7 @@ async function handleInteractions(interaction) {
 
             const joinButton = new ButtonBuilder()
               .setCustomId(`confirm_join_${panelId}_${roleId}`)
-              .setLabel(requiresApproval ? "🔐 Request to Join" : "✅ Join Team")
+              .setLabel(requiresApproval ? "🔐 Request to Join" : "✅ Join")
               .setStyle(requiresApproval ? ButtonStyle.Secondary : ButtonStyle.Success);
 
             const cancelButton = new ButtonBuilder()
@@ -345,7 +345,7 @@ async function handleInteractions(interaction) {
               `✅ **Welcome to ${result.roleName}!**\n\nYou have successfully joined the team. You can leave anytime by clicking the role button again.`
             );
           } else {
-            await interaction.editReply(`❌ Error: ${result.message || 'Could not join team'}`);
+            await interaction.editReply(`❌ Error: ${result.message || 'Could not join'}`);
           }
           
         } catch (error) {

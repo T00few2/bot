@@ -329,9 +329,9 @@ class RoleService {
         approvalInfo += `\n\n**Team Captains:**`;
         teamCaptainRoles.forEach(role => {
           approvalInfo += `\n• <@&${role.roleId}> → <@${role.teamCaptainId}>`;
-          if (role.roleApprovalChannelId) {
-            approvalInfo += ` (📢 <#${role.roleApprovalChannelId}>)`;
-          }
+          //if (role.roleApprovalChannelId) {
+            //approvalInfo += ` (📢 <#${role.roleApprovalChannelId}>)`;
+          //}
         });
       }
 

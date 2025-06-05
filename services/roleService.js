@@ -360,7 +360,7 @@ class RoleService {
 
     // Add button color explanation
     embed.addFields({ 
-      name: "🎨 Button Colors", 
+      name: "----------", 
       value: `🔴 Red = Løbsserie\n🔵 Blue = ZRL hold\n🟢 Green = Ladder hold`,
       inline: false 
     });

@@ -317,7 +317,7 @@ class RoleService {
     }).join("\n");
 
     embed.addFields({ name: "Available Roles", value: roleList });
-
+    /*
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
@@ -350,7 +350,7 @@ class RoleService {
         inline: false 
       });
     }
-
+    */
     // Add required roles info if any
     if (panelConfig.requiredRoles && panelConfig.requiredRoles.length > 0) {
       const requiredRolesList = panelConfig.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ");

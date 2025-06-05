@@ -358,6 +358,13 @@ class RoleService {
       });
     }
 
+    // Add button color explanation
+    embed.addFields({ 
+      name: "🎨 Button Colors", 
+      value: `🔴 Red = Løbsserie\n🔵 Blue = ZRL hold\n🟢 Green = Ladder hold`,
+      inline: false 
+    });
+
     // Create buttons (max 5 per row, max 5 rows = 25 buttons)
     const components = [];
     const maxButtonsPerRow = 5;

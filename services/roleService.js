@@ -310,7 +310,7 @@ class RoleService {
 
     // Add role list to embed
     const roleList = roles.map(role => {
-      const emoji = role.emoji || "🔹";
+      //const emoji = role.emoji || "🔹";
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
       return `${emoji} <@&${role.roleId}>${description}${approvalIcon}`;

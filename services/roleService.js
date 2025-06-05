@@ -321,7 +321,7 @@ class RoleService {
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
-      let approvalInfo = `The following teams require approval for joining:`;
+      let approvalInfo = ``;
       
       // Add team captain info if any roles have specific captains
       const teamCaptainRoles = approvalRoles.filter(role => role.teamCaptainId);

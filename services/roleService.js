@@ -361,7 +361,14 @@ class RoleService {
     // Add button color explanation
     embed.addFields({ 
       name: "----------", 
-      value: `🔴 Rød = Løbsserie\n🔵 Blue = DZR hold`,
+      value: `🔴 Rød = Løbsserie\n🔵 Blå = DZR hold`,
+      inline: false 
+    });
+
+    // Add DZR website link
+    embed.addFields({ 
+      name: "🌐 Mere information", 
+      value: `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl`,
       inline: false 
     });
 

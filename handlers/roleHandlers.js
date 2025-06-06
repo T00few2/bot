@@ -830,6 +830,10 @@ async function handleMyTeam(interaction) {
           // Get role info and member count
           const guildRole = await interaction.guild.roles.fetch(role.roleId);
           if (guildRole) {
+            // Fetch all guild members to ensure we have the complete member list
+            await interaction.guild.members.fetch();
+            
+            // Now get all members with this role
             const members = guildRole.members.map(member => ({
               id: member.id,
               displayName: member.displayName,

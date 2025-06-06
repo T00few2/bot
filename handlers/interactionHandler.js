@@ -197,12 +197,12 @@ async function handleInteractions(interaction) {
           if (hasRole) {
             // User has the role - show leave option
             embed.addFields([
-              { name: "ℹ️ Leave Team", value: "You can leave this team anytime. You'll be able to rejoin through the role panel.", inline: false }
+              { name: "ℹ️ Leave", value: "You can leave this team anytime. You'll be able to rejoin through the role panel.", inline: false }
             ]);
 
             const leaveButton = new ButtonBuilder()
               .setCustomId(`confirm_leave_${panelId}_${roleId}`)
-              .setLabel("🚪 Leave Team")
+              .setLabel("🚪 Leave")
               .setStyle(ButtonStyle.Danger);
 
             const cancelButton = new ButtonBuilder()
@@ -301,7 +301,7 @@ async function handleInteractions(interaction) {
               `🚪 **You have left the team!**\n\nYou are no longer a member of **${result.roleName}**. You can rejoin anytime through the role panel.`
             );
           } else {
-            await interaction.editReply(`❌ Error: ${result.message || 'Could not leave team'}`);
+            await interaction.editReply(`❌ Error: ${result.message || 'Could not leave'}`);
           }
           
         } catch (error) {

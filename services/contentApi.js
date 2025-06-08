@@ -72,18 +72,21 @@ async function getProbabilitySelectedMessages() {
     });
     
     console.log(`✅ API Response: Probability check completed`);
+    console.log(`   Selection method: ${response.data.selection_method || 'unknown'}`);
     console.log(`   Messages to send: ${response.data.messages_to_send.length}`);
     console.log(`   Total eligible: ${response.data.total_eligible}`);
-    console.log(`   Channels checked: ${response.data.channels_checked}`);
+    console.log(`   Channels with eligible messages: ${response.data.channels_with_eligible_messages || 'unknown'}`);
+    console.log(`   Global daily probability: ${response.data.global_daily_probability}`);
     
     if (response.data.messages_to_send.length > 0) {
-      console.log(`📋 Selected messages:`, response.data.messages_to_send.map(msg => ({
+      console.log(`📋 Selected message:`, response.data.messages_to_send.map(msg => ({
         id: msg.id,
         title: msg.title,
         channel_id: msg.channel_id,
-        likelihood: msg.schedule?.likelihood || 1.0,
-        daily_probability: msg.schedule?.daily_probability || 0.1
+        likelihood: msg.schedule?.likelihood || 1.0
       })));
+    } else {
+      console.log(`🎲 No message selected - probability roll failed or no eligible messages`);
     }
     
     return response.data.messages_to_send;

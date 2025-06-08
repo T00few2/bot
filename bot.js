@@ -108,10 +108,12 @@ client.on("voiceStateUpdate", handleVoiceStateUpdate);
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   
-  // Set bot status/presence - trying CustomActivity
-  const { CustomActivity } = require('discord.js');
+  // Set bot status/presence
   client.user.setPresence({
-    activities: [new CustomActivity('Zwift | Avoiding headwinds since 2014 💨')],
+    activities: [{
+      name: 'Zwift | Avoiding headwinds since 2014 💨',
+      type: 0 // PLAYING
+    }],
     status: 'online'
   });
   

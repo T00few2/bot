@@ -74,6 +74,125 @@ async function handleGuildMemberAdd(member) {
   }
 }
 
+/**
+ * Handle member role updates (when roles are added or removed)
+ */
+async function handleGuildMemberUpdate(oldMember, newMember) {
+  try {
+    // Check if roles have changed
+    const oldRoles = oldMember.roles.cache;
+    const newRoles = newMember.roles.cache;
+    
+    // Find added roles
+    const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
+    
+    if (addedRoles.size === 0) {
+      return; // No roles were added
+    }
+    
+    console.log(`🔔 ROLE UPDATE EVENT: ${newMember.user.username} received ${addedRoles.size} new role(s)`);
+    
+    // Process each added role
+    for (const [roleId, role] of addedRoles) {
+      await handleRoleAssignment(newMember, role);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error handling member role update:", error);
+  }
+}
+
+/**
+ * Handle a specific role assignment
+ */
+async function handleRoleAssignment(member, role) {
+  try {
+    console.log(`🎭 Processing role assignment: ${member.user.username} received role "${role.name}" (${role.id})`);
+    
+    // Get role messages from API
+    const response = await fetch(`${process.env.API_BASE_URL}/api/messages/role-messages`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.CONTENT_API_KEY}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.log("❌ Failed to fetch role messages from API");
+      return;
+    }
+    
+    const roleMessages = await response.json();
+    
+    // Find messages for this specific role
+    const matchingMessages = roleMessages.filter(msg => 
+      msg.active && msg.role_id === role.id
+    );
+    
+    if (matchingMessages.length === 0) {
+      console.log(`📭 No role messages configured for role "${role.name}"`);
+      return;
+    }
+    
+    console.log(`✅ Found ${matchingMessages.length} role message(s) for role "${role.name}"`);
+    
+    // Process each matching message
+    for (const roleMessage of matchingMessages) {
+      await sendRoleMessage(member, role, roleMessage);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error handling role assignment:", error);
+  }
+}
+
+/**
+ * Send a role assignment message
+ */
+async function sendRoleMessage(member, role, roleMessage) {
+  try {
+    console.log(`📤 Sending role message: "${roleMessage.title}" for role "${role.name}"`);
+    
+    // Process message content with variables
+    const variables = {
+      username: member.user.username,
+      displayName: member.displayName,
+      server_name: member.guild.name,
+      member_count: member.guild.memberCount,
+      mention: `<@${member.user.id}>`,
+      role_name: role.name,
+      role_mention: `<@&${role.id}>`,
+      role_color: role.hexColor || '#000000'
+    };
+    
+    const { processMessageContent } = require("../services/contentApi");
+    const content = processMessageContent(roleMessage.content, variables);
+    
+    // Build message object
+    const messageOptions = { content };
+    
+    // Send to specified channel
+    const channelId = roleMessage.channel_id;
+    if (!channelId) {
+      console.log("❌ No channel specified for role message");
+      return;
+    }
+    
+    console.log(`📍 Attempting to send role message to channel: ${channelId}`);
+    
+    const channel = member.guild.channels.cache.get(channelId);
+    if (channel) {
+      await channel.send(messageOptions);
+      console.log(`✅ Successfully sent role message for ${member.user.username} receiving "${role.name}" in #${channel.name}`);
+    } else {
+      console.log(`❌ Could not find channel with ID: ${channelId}`);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error sending role message:", error);
+  }
+}
+
 module.exports = {
   handleGuildMemberAdd,
+  handleGuildMemberUpdate,
 }; 

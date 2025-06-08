@@ -3,7 +3,7 @@ const config = require("./config/config");
 const commands = require("./commands/slashCommands");
 const { setupKeepAliveServer } = require("./services/server");
 const { handleInteractions } = require("./handlers/interactionHandler");
-const { handleGuildMemberAdd } = require("./handlers/memberHandler");
+const { handleGuildMemberAdd, handleGuildMemberUpdate } = require("./handlers/memberHandler");
 const { startScheduler } = require("./services/scheduler");
 const approvalService = require("./services/approvalService");
 const { 
@@ -96,6 +96,9 @@ client.on("interactionCreate", (interaction) => {
 
 // Handle new members
 client.on("guildMemberAdd", handleGuildMemberAdd);
+
+// Handle member updates (role changes)
+client.on("guildMemberUpdate", handleGuildMemberUpdate);
 
 // Handle activity for stats collection
 client.on("messageCreate", handleMessageCreate);

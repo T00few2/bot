@@ -52,10 +52,10 @@ async function handleGuildMemberAdd(member) {
       messageOptions.embeds = [embed];
     }
 
-    // Send to welcome channel or general channel
-    const channelId = config.discord.welcomeChannelId || member.guild.systemChannelId;
+    // Send to channel specified in welcome message or fallback to config/system channel
+    const channelId = welcomeMessage.channel_id || config.discord.welcomeChannelId || member.guild.systemChannelId;
     if (!channelId) {
-      console.log("❌ No welcome channel configured - no welcomeChannelId or systemChannelId");
+      console.log("❌ No welcome channel configured - no channel_id in message, welcomeChannelId, or systemChannelId");
       return;
     }
 
@@ -110,9 +110,9 @@ async function handleRoleAssignment(member, role) {
     console.log(`🎭 Processing role assignment: ${member.user.username} received role "${role.name}" (${role.id})`);
     
     // Get role messages from API
-    const response = await fetch(`${process.env.API_BASE_URL}/api/messages/role-messages`, {
+    const response = await fetch(`${config.contentApi.baseUrl}/api/messages/role-messages`, {
       headers: {
-        'Authorization': `Bearer ${process.env.CONTENT_API_KEY}`
+        'Authorization': `Bearer ${config.contentApi.apiKey}`
       }
     });
     

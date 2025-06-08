@@ -108,6 +108,15 @@ client.on("voiceStateUpdate", handleVoiceStateUpdate);
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   
+  // Set bot status/presence
+  client.user.setPresence({
+    activities: [{
+      name: 'Zwift | Avoiding headwinds since 2014 💨',
+      type: 0 // PLAYING
+    }],
+    status: 'online'
+  });
+  
   // Start the message scheduler
   startScheduler(client);
 });

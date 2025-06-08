@@ -110,11 +110,11 @@ client.once("ready", () => {
   
   // Set bot status/presence
   client.user.setPresence({
+    status: 'online',
     activities: [{
-      name: 'Zwift | Avoiding headwinds since 2014 💨',
-      type: 0 // PLAYING
-    }],
-    status: 'online'
+      type: 4, // CUSTOM status type
+      state: 'Avoiding headwinds since 2014 💨'
+    }]
   });
   
   // Start the message scheduler

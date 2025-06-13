@@ -296,9 +296,9 @@ class RoleService {
     let messageContent = `# 🔑 ${panelConfig.name}\n\n`;
     
     if (panelConfig.description) {
-      messageContent += `${panelConfig.description}\n\n`;
+      messageContent += `${panelConfig.description}\n`;
     } else {
-      messageContent += `Click the buttons below to add or remove roles!\n\n`;
+      messageContent += `Click the buttons below to add or remove roles!\n`;
     }
 
     if (!userHasAccess) {

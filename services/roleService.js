@@ -292,21 +292,23 @@ class RoleService {
 
   // NEW: Create role panel for specific panel with access checks
   async createRolePanelForPanel(roles, guildName, panelConfig, userHasAccess = true) {
-    const embed = new EmbedBuilder()
-      .setTitle(`🔑 ${panelConfig.name}`)
-      .setDescription(panelConfig.description || "Click the buttons below to add or remove roles!")
-      .setColor(userHasAccess ? 0x5865F2 : 0xFF6B6B)
-      .setFooter({ text: `${guildName} • ${panelConfig.name}` })
-      .setTimestamp();
+    // Build the message content as regular text instead of embed
+    let messageContent = `# 🔑 ${panelConfig.name}\n\n`;
+    
+    if (panelConfig.description) {
+      messageContent += `${panelConfig.description}\n\n`;
+    } else {
+      messageContent += `Click the buttons below to add or remove roles!\n\n`;
+    }
 
     if (!userHasAccess) {
-      embed.setDescription("❌ You don't have the required roles to access this panel.");
-      return { embeds: [embed], components: [] };
+      messageContent += "❌ You don't have the required roles to access this panel.";
+      return { content: messageContent, components: [] };
     }
 
     if (roles.length === 0) {
-      embed.setDescription("No roles are currently available in this panel.");
-      return { embeds: [embed], components: [] };
+      messageContent += "No roles are currently available in this panel.";
+      return { content: messageContent, components: [] };
     }
 
     // Pre-fetch all unique team captain IDs to improve cache hit rate
@@ -359,77 +361,51 @@ class RoleService {
       }
     }
 
-    // Add role list to embed
+    // Add available roles section
+    messageContent += `## Available Roles\n`;
+    
     const roleList = roles.map(role => {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
       const teamCaptain = role.teamCaptainId ? ` ${teamCaptains.get(role.teamCaptainId)}` : "";
-      return `${role.emoji || ""} ${role.roleName}${description}${approvalIcon}${teamCaptain}`;
+      return `${role.emoji || ""} **${role.roleName}**${description}${approvalIcon}${teamCaptain}`;
     });
 
-    // Split roles into multiple fields if needed (Discord has a 1024 char limit per field)
-    const MAX_FIELD_LENGTH = 1000; // Leave some buffer
-    let currentField = "";
-    let fieldCount = 1;
-
-    for (const role of roleList) {
-      // If adding this role would exceed the limit, create a new field
-      if (currentField && currentField.length + role.length + 1 > MAX_FIELD_LENGTH) {
-        embed.addFields({ 
-          name: fieldCount === 1 ? "Available Roles" : `Available Roles (continued)`, 
-          value: currentField.trim(),
-          inline: false 
-        });
-        currentField = role;
-        fieldCount++;
-      } else {
-        // Add role to current field
-        currentField += (currentField ? "\n" : "") + role;
-      }
-    }
-
-    // Add the last field if there's anything left
-    if (currentField) {
-      embed.addFields({ 
-        name: fieldCount === 1 ? "Available Roles" : `Available Roles (continued)`, 
-        value: currentField.trim(),
-        inline: false 
-      });
-    }
+    // Add all roles to message content (no character limits like embed fields)
+    messageContent += roleList.join("\n") + "\n\n";
     
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
-      embed.addFields({ 
-        name: `🔐 = Team Approval Required`, 
-        value: "",
-        inline: false 
-      });
+      messageContent += `🔐 = **Team Approval Required**\n\n`;
     }
     
     // Add required roles info if any
     if (panelConfig.requiredRoles && panelConfig.requiredRoles.length > 0) {
       const requiredRolesList = panelConfig.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ");
-      embed.addFields({ 
-        name: "🔒 Required Roles", 
-        value: `You need: ${requiredRolesList}`,
-        inline: false 
-      });
+      messageContent += `🔒 **Required Roles**: You need: ${requiredRolesList}\n\n`;
     }
 
     // Add button color explanation
-    embed.addFields({ 
-      name: "----------", 
-      value: `🔴 Rød = Løbsserie\n🔵 Blå = DZR hold\nZRL = Zwift Racing League`,
-      inline: false 
-    });
+    messageContent += `---\n`;
+    messageContent += `🔴 **Rød** = Løbsserie\n`;
+    messageContent += `🔵 **Blå** = DZR hold\n`;
+    messageContent += `**ZRL** = Zwift Racing League\n\n`;
 
     // Add DZR website link
-    embed.addFields({ 
-      name: "🌐 Mere information", 
-      value: `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl`,
-      inline: false 
+    messageContent += `🌐 **Mere information**\n`;
+    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl\n\n`;
+    
+    // Add footer with timestamp
+    const timestamp = new Date().toLocaleString('da-DK', { 
+      timeZone: 'Europe/Copenhagen',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+    messageContent += `*${guildName} • ${panelConfig.name} • ${timestamp}*`;
 
     // Create buttons (max 5 per row, max 5 rows = 25 buttons)
     const components = [];
@@ -485,7 +461,7 @@ class RoleService {
       components.push(row);
     }
 
-    return { embeds: [embed], components };
+    return { content: messageContent, components };
   }
 
   // NEW: Update role approval requirement

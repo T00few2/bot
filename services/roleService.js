@@ -315,9 +315,11 @@ class RoleService {
       if (role.teamCaptainId) {
         try {
           const member = await panelConfig.guild.members.fetch(role.teamCaptainId);
-          teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
+          // Use nickname mention format for consistent display and clickability
+          teamCaptains.set(role.teamCaptainId, `<@!${role.teamCaptainId}>`);
         } catch (error) {
           console.error(`Could not fetch team captain ${role.teamCaptainId}:`, error);
+          // Fallback to basic user mention if member can't be fetched
           teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
         }
       }

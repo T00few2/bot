@@ -337,8 +337,8 @@ class RoleService {
     let fieldCount = 1;
 
     for (const role of roleList) {
-      if (currentField.length + role.length + 1 > MAX_FIELD_LENGTH) {
-        // Add current field and start a new one
+      // If adding this role would exceed the limit, create a new field
+      if (currentField && currentField.length + role.length + 1 > MAX_FIELD_LENGTH) {
         embed.addFields({ 
           name: fieldCount === 1 ? "Available Roles" : `Available Roles (continued)`, 
           value: currentField.trim(),
@@ -347,6 +347,7 @@ class RoleService {
         currentField = role;
         fieldCount++;
       } else {
+        // Add role to current field
         currentField += (currentField ? "\n" : "") + role;
       }
     }

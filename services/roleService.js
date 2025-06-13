@@ -395,7 +395,7 @@ class RoleService {
 
     // Add DZR website link
     messageContent += `🌐 **Mere information**\n`;
-    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl`;
+    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl\n`;
 
     // Create buttons (max 5 per row, max 5 rows = 25 buttons)
     const components = [];

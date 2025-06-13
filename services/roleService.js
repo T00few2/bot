@@ -329,9 +329,36 @@ class RoleService {
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
       const teamCaptain = role.teamCaptainId ? ` ${teamCaptains.get(role.teamCaptainId)}` : "";
       return `${role.emoji || ""} ${role.roleName}${description}${approvalIcon}${teamCaptain}`;
-    }).join("\n");
+    });
 
-    embed.addFields({ name: "Available Roles", value: roleList });
+    // Split roles into multiple fields if needed (Discord has a 1024 char limit per field)
+    const MAX_FIELD_LENGTH = 1000; // Leave some buffer
+    let currentField = "";
+    let fieldCount = 1;
+
+    for (const role of roleList) {
+      if (currentField.length + role.length + 1 > MAX_FIELD_LENGTH) {
+        // Add current field and start a new one
+        embed.addFields({ 
+          name: fieldCount === 1 ? "Available Roles" : `Available Roles (continued)`, 
+          value: currentField.trim(),
+          inline: false 
+        });
+        currentField = role;
+        fieldCount++;
+      } else {
+        currentField += (currentField ? "\n" : "") + role;
+      }
+    }
+
+    // Add the last field if there's anything left
+    if (currentField) {
+      embed.addFields({ 
+        name: fieldCount === 1 ? "Available Roles" : `Available Roles (continued)`, 
+        value: currentField.trim(),
+        inline: false 
+      });
+    }
     
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);

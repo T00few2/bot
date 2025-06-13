@@ -390,22 +390,12 @@ class RoleService {
     messageContent += `---\n`;
     messageContent += `🔴 **Rød** = Løbsserie\n`;
     messageContent += `🔵 **Blå** = DZR hold\n`;
-    messageContent += `**ZRL** = Zwift Racing League\n\n`;
+    messageContent += `**ZRL** = Zwift Racing League\n`;
+    messageContent += `**DRS** = DIRT Racing Series\n\n`;
 
     // Add DZR website link
     messageContent += `🌐 **Mere information**\n`;
-    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl\n\n`;
-    
-    // Add footer with timestamp
-    const timestamp = new Date().toLocaleString('da-DK', { 
-      timeZone: 'Europe/Copenhagen',
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    messageContent += `*${guildName} • ${panelConfig.name} • ${timestamp}*`;
+    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl`;
 
     // Create buttons (max 5 per row, max 5 rows = 25 buttons)
     const components = [];

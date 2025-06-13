@@ -313,7 +313,8 @@ class RoleService {
     const roleList = roles.map(role => {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
-      return `${role.roleName}${description}${approvalIcon}`;
+      const teamCaptain = role.teamCaptainId ? ` <@${role.teamCaptainId}>` : "";
+      return `${role.emoji || ""} ${role.roleName}${description}${approvalIcon}${teamCaptain}`;
     }).join("\n");
 
     embed.addFields({ name: "Available Roles", value: roleList });
@@ -321,29 +322,9 @@ class RoleService {
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
-      let approvalInfo = ``;
-      
-      // Add team captain info if any roles have specific captains
-      const teamCaptainRoles = approvalRoles.filter(role => role.teamCaptainId);
-      if (teamCaptainRoles.length > 0) {
-        approvalInfo += `\n\n**🏆 Teams with Captains:**`;
-        teamCaptainRoles.forEach(role => {
-          approvalInfo += `\n• **${role.roleName}** → Captain: <@${role.teamCaptainId}>`;
-        });
-      }
-
-      // Add roles without team captains
-      const noTeamCaptainRoles = approvalRoles.filter(role => !role.teamCaptainId);
-      if (noTeamCaptainRoles.length > 0) {
-        approvalInfo += `\n\n**🔐 Admin Approval Required:**`;
-        noTeamCaptainRoles.forEach(role => {
-          approvalInfo += `\n• **${role.roleName}**`;
-        });
-      }
-      
       embed.addFields({ 
-        name: `\n\n🔐 = Team Approval Required`, 
-        value: approvalInfo,
+        name: `🔐 = Team Approval Required`, 
+        value: "",
         inline: false 
       });
     }

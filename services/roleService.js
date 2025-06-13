@@ -309,18 +309,52 @@ class RoleService {
       return { embeds: [embed], components: [] };
     }
 
+    // Pre-fetch all unique team captain IDs to improve cache hit rate
+    const uniqueCaptainIds = [...new Set(roles.filter(role => role.teamCaptainId).map(role => role.teamCaptainId))];
+    if (uniqueCaptainIds.length > 0) {
+      console.log(`🔄 Pre-fetching ${uniqueCaptainIds.length} team captains for role panel...`);
+      try {
+        // Batch fetch all team captains
+        await panelConfig.guild.members.fetch({ user: uniqueCaptainIds, force: false });
+        console.log(`✅ Pre-fetch completed for team captains`);
+      } catch (error) {
+        console.log(`⚠️ Batch pre-fetch failed, will fetch individually: ${error.message}`);
+      }
+    }
+
     // Fetch all team captains to ensure consistent username display
     const teamCaptains = new Map();
     for (const role of roles) {
       if (role.teamCaptainId) {
         try {
-          const member = await panelConfig.guild.members.fetch(role.teamCaptainId);
-          // Use nickname mention format for consistent display and clickability
-          teamCaptains.set(role.teamCaptainId, `<@!${role.teamCaptainId}>`);
+          // Force fetch the member to ensure it's in cache
+          const member = await panelConfig.guild.members.fetch(role.teamCaptainId, { force: true });
+          
+          // Double-check that the member was successfully fetched
+          if (member && member.user) {
+            // Use both mention formats to maximize compatibility
+            // The !userID format prioritizes nicknames, regular format is fallback
+            const mention = `<@!${role.teamCaptainId}>`;
+            teamCaptains.set(role.teamCaptainId, mention);
+            
+            // Log for debugging
+            console.log(`✅ Successfully fetched team captain: ${member.displayName || member.user.username} (${role.teamCaptainId})`);
+          } else {
+            throw new Error("Member fetch returned null/undefined");
+          }
         } catch (error) {
-          console.error(`Could not fetch team captain ${role.teamCaptainId}:`, error);
-          // Fallback to basic user mention if member can't be fetched
-          teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
+          console.error(`❌ Could not fetch team captain ${role.teamCaptainId}:`, error.message);
+          
+          // Try to get from cache as last resort
+          const cachedMember = panelConfig.guild.members.cache.get(role.teamCaptainId);
+          if (cachedMember) {
+            teamCaptains.set(role.teamCaptainId, `<@!${role.teamCaptainId}>`);
+            console.log(`✅ Using cached member for team captain: ${cachedMember.displayName || cachedMember.user.username}`);
+          } else {
+            // Final fallback - use basic mention (will show as ID if not resolvable)
+            teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
+            console.log(`⚠️ Using basic mention for team captain ${role.teamCaptainId} - may display as ID`);
+          }
         }
       }
     }

@@ -50,10 +50,20 @@ async function handleAutocomplete(interaction) {
       ).slice(0, 25); // Discord limits to 25 options
 
       await interaction.respond(filtered);
+    } else {
+      // Default empty response for unhandled autocomplete options
+      await interaction.respond([]);
     }
   } catch (error) {
     console.error('Error handling autocomplete:', error);
-    await interaction.respond([]);
+    // Only try to respond if the interaction hasn't expired
+    if (error.code !== 10062) { // Not "Unknown interaction"
+      try {
+        await interaction.respond([]);
+      } catch (fallbackError) {
+        console.error('Fallback autocomplete response failed:', fallbackError);
+      }
+    }
   }
 } // Unique ID for this handler instance
 
@@ -359,6 +369,12 @@ async function handleInteractions(interaction) {
 
     // Handle autocomplete
     if (interaction.isAutocomplete()) {
+      // Check if interaction is recent enough to respond to (Discord autocomplete expires in 3 seconds)
+      const interactionAge = Date.now() - interaction.createdTimestamp;
+      if (interactionAge > 2500) { // 2.5 seconds safety margin
+        console.log(`⚠️ [${HANDLER_ID}] Skipping autocomplete response - interaction too old (${interactionAge}ms)`);
+        return;
+      }
       await handleAutocomplete(interaction);
       return;
     }
@@ -444,6 +460,13 @@ async function handleInteractions(interaction) {
 
   } catch (error) {
     console.error(`❌ [${HANDLER_ID}] Unexpected Error:`, error);
+    
+    // Don't try to respond to autocomplete interactions or expired interactions
+    if (interaction.isAutocomplete() || error.code === 10062) {
+      console.log(`⚠️ [${HANDLER_ID}] Skipping error response for autocomplete or expired interaction`);
+      return;
+    }
+    
     try {
       // Check current interaction state before trying to respond
       if (!interaction.replied && !interaction.deferred) {

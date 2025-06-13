@@ -281,17 +281,17 @@ class RoleService {
   }
 
   // Legacy method - create role panel for default panel
-  createRolePanel(roles, guildName) {
+  async createRolePanel(roles, guildName) {
     const panelConfig = {
       name: "Role Selection",
       description: "Click the buttons below to add or remove roles!",
       panelId: 'default'
     };
-    return this.createRolePanelForPanel(roles, guildName, panelConfig, true);
+    return await this.createRolePanelForPanel(roles, guildName, panelConfig, true);
   }
 
   // NEW: Create role panel for specific panel with access checks
-  createRolePanelForPanel(roles, guildName, panelConfig, userHasAccess = true) {
+  async createRolePanelForPanel(roles, guildName, panelConfig, userHasAccess = true) {
     const embed = new EmbedBuilder()
       .setTitle(`🔑 ${panelConfig.name}`)
       .setDescription(panelConfig.description || "Click the buttons below to add or remove roles!")
@@ -309,11 +309,25 @@ class RoleService {
       return { embeds: [embed], components: [] };
     }
 
+    // Fetch all team captains to ensure consistent username display
+    const teamCaptains = new Map();
+    for (const role of roles) {
+      if (role.teamCaptainId) {
+        try {
+          const member = await panelConfig.guild.members.fetch(role.teamCaptainId);
+          teamCaptains.set(role.teamCaptainId, member.displayName);
+        } catch (error) {
+          console.error(`Could not fetch team captain ${role.teamCaptainId}:`, error);
+          teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
+        }
+      }
+    }
+
     // Add role list to embed
     const roleList = roles.map(role => {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
-      const teamCaptain = role.teamCaptainId ? ` <@${role.teamCaptainId}>` : "";
+      const teamCaptain = role.teamCaptainId ? ` ${teamCaptains.get(role.teamCaptainId)}` : "";
       return `${role.emoji || ""} ${role.roleName}${description}${approvalIcon}${teamCaptain}`;
     }).join("\n");
 
@@ -342,7 +356,7 @@ class RoleService {
     // Add button color explanation
     embed.addFields({ 
       name: "----------", 
-      value: `🔴 Rød = Løbsserie\n🔵 Blå = DZR hold`,
+      value: `🔴 Rød = Løbsserie\n🔵 Blå = DZR hold\nZRL = Zwift Racing League`,
       inline: false 
     });
 

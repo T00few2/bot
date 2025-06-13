@@ -126,7 +126,9 @@ async function handleRolesPanel(interaction) {
       return;
     }
 
-    const panelData = roleService.createRolePanel(config.roles, interaction.guild.name);
+    // Add guild to config for member fetching
+    config.guild = interaction.guild;
+    const panelData = await roleService.createRolePanelForPanel(config.roles, interaction.guild.name, config, true);
 
     // Delete old panel message if it exists
     if (config.panelMessageId) {
@@ -366,7 +368,9 @@ async function handleUpdatePanel(interaction) {
       return;
     }
 
-    const panelData = roleService.createRolePanelForPanel(panelConfig.roles, interaction.guild.name, panelConfig, true);
+    // Add guild to panel config for member fetching
+    panelConfig.guild = interaction.guild;
+    const panelData = await roleService.createRolePanelForPanel(panelConfig.roles, interaction.guild.name, panelConfig, true);
 
     // Delete old panel message if it exists
     if (panelConfig.panelMessageId) {

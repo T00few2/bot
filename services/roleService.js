@@ -315,7 +315,7 @@ class RoleService {
       if (role.teamCaptainId) {
         try {
           const member = await panelConfig.guild.members.fetch(role.teamCaptainId);
-          teamCaptains.set(role.teamCaptainId, `@${member.displayName}`);
+          teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
         } catch (error) {
           console.error(`Could not fetch team captain ${role.teamCaptainId}:`, error);
           teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);

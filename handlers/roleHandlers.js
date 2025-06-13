@@ -372,21 +372,25 @@ async function handleUpdatePanel(interaction) {
     panelConfig.guild = interaction.guild;
     const panelData = await roleService.createRolePanelForPanel(panelConfig.roles, interaction.guild.name, panelConfig, true);
 
-    // Delete old panel message if it exists
+    let panelMessage;
+    
+    // Try to edit existing message first (no notifications)
     if (panelConfig.panelMessageId) {
       try {
         const oldMessage = await channel.messages.fetch(panelConfig.panelMessageId);
-        await oldMessage.delete();
+        panelMessage = await oldMessage.edit(panelData);
+        console.log(`✅ Silently updated existing panel message ${panelConfig.panelMessageId}`);
       } catch (error) {
-        console.log("Could not delete old panel message:", error.message);
+        console.log("Could not edit old panel message, creating new one:", error.message);
+        // If editing fails, create a new message
+        panelMessage = await channel.send(panelData);
+        await roleService.updatePanelMessageIdForPanel(interaction.guild.id, panelId, panelMessage.id);
       }
+    } else {
+      // No existing message, create new one
+      panelMessage = await channel.send(panelData);
+      await roleService.updatePanelMessageIdForPanel(interaction.guild.id, panelId, panelMessage.id);
     }
-
-    // Send new panel
-    const panelMessage = await channel.send(panelData);
-    
-    // Update the stored message ID
-    await roleService.updatePanelMessageIdForPanel(interaction.guild.id, panelId, panelMessage.id);
 
     await interaction.editReply(`✅ Panel **${panelConfig.name}** has been ${panelConfig.panelMessageId ? 'updated' : 'created'} in ${channel}!`);
   } catch (error) {

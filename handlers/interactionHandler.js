@@ -33,6 +33,12 @@ const {
   handleMyTeam,
   handleRemoveTeamMember,
 } = require("./roleHandlers");
+const {
+  handleSetupVerification,
+  handleVerificationStatus,
+  handleProcessVerification,
+  handleDisableVerification
+} = require("./verificationHandlers");
 const crypto = require("crypto");
 
 const HANDLER_ID = crypto.randomUUID().slice(0, 8);
@@ -106,6 +112,10 @@ async function handleSelectMenus(interaction) {
       await linkUserZwiftId(discordID, username, selectedValue);
       const content = `✅ You have selected rider ZwiftID: **${selectedValue}**. It is now linked to your Discord profile!`;
       await ephemeralReplyWithPublish(interaction, content);
+      
+      // Check verification status after linking ZwiftID
+      const { checkVerificationAfterZwiftLink } = require("./memberHandler");
+      await checkVerificationAfterZwiftLink(interaction.guild, discordID);
     } catch (error) {
       console.error("❌ myzwift_select error:", error);
       if (!interaction.replied) {
@@ -127,6 +137,10 @@ async function handleSelectMenus(interaction) {
       await linkUserZwiftId(targetUserId, targetUser.username, selectedValue);
       const content = `✅ Linked ZwiftID **${selectedValue}** to ${targetUser.username}.`;
       await ephemeralReplyWithPublish(interaction, content);
+      
+      // Check verification status after linking ZwiftID
+      const { checkVerificationAfterZwiftLink } = require("./memberHandler");
+      await checkVerificationAfterZwiftLink(interaction.guild, targetUserId);
     } catch (error) {
       console.error("❌ setzwift_select error:", error);
       if (!interaction.replied) {
@@ -449,6 +463,11 @@ async function handleInteractions(interaction) {
       // NEW: Team Captain Management Commands
       "my_team": handleMyTeam,
       "remove_team_member": handleRemoveTeamMember,
+      // Verification system commands
+      "setup_verification": handleSetupVerification,
+      "verification_status": handleVerificationStatus,
+      "process_verification": handleProcessVerification,
+      "disable_verification": handleDisableVerification,
     };
 
     const handler = commandHandlers[commandName];

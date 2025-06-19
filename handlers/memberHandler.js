@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { getWelcomeMessage, processMessageContent } = require("../services/contentApi");
 const config = require("../config/config");
+const verificationService = require("../services/verificationService");
 
 /**
  * Handle new member joining the server
@@ -13,64 +14,65 @@ async function handleGuildMemberAdd(member) {
     const welcomeMessage = await getWelcomeMessage();
     if (!welcomeMessage) {
       console.log("❌ No welcome message configured");
-      return;
-    }
-
-    console.log(`✅ Welcome message found: ${welcomeMessage.title}`);
-
-    // Process message content with member variables
-    const variables = {
-      username: member.user.username,
-      displayName: member.displayName,
-      server_name: member.guild.name,
-      member_count: member.guild.memberCount,
-      mention: `<@${member.user.id}>`
-    };
-
-    const content = processMessageContent(welcomeMessage.content, variables);
-
-    // Build message object
-    const messageOptions = { content };
-
-    // Add embed if configured
-    if (welcomeMessage.embed) {
-      const embed = new EmbedBuilder()
-        .setTitle(processMessageContent(welcomeMessage.embed.title || "", variables))
-        .setDescription(processMessageContent(welcomeMessage.embed.description || "", variables))
-        .setColor(welcomeMessage.embed.color || 0x0099FF);
-
-      if (welcomeMessage.embed.thumbnail) {
-        embed.setThumbnail(member.user.displayAvatarURL());
-      }
-
-      if (welcomeMessage.embed.footer) {
-        embed.setFooter({ 
-          text: processMessageContent(welcomeMessage.embed.footer, variables) 
-        });
-      }
-
-      messageOptions.embeds = [embed];
-    }
-
-    // Send to channel specified in welcome message or fallback to config/system channel
-    const channelId = welcomeMessage.channel_id || config.discord.welcomeChannelId || member.guild.systemChannelId;
-    if (!channelId) {
-      console.log("❌ No welcome channel configured - no channel_id in message, welcomeChannelId, or systemChannelId");
-      return;
-    }
-
-    console.log(`📍 Attempting to send welcome message to channel: ${channelId}`);
-
-    const channel = member.guild.channels.cache.get(channelId);
-    if (channel) {
-      await channel.send(messageOptions);
-      console.log(`✅ Successfully sent welcome message to ${member.user.username} in #${channel.name}`);
     } else {
-      console.log(`❌ Could not find channel with ID: ${channelId}`);
+      console.log(`✅ Welcome message found: ${welcomeMessage.title}`);
+
+      // Process message content with member variables
+      const variables = {
+        username: member.user.username,
+        displayName: member.displayName,
+        server_name: member.guild.name,
+        member_count: member.guild.memberCount,
+        mention: `<@${member.user.id}>`
+      };
+
+      const content = processMessageContent(welcomeMessage.content, variables);
+
+      // Build message object
+      const messageOptions = { content };
+
+      // Add embed if configured
+      if (welcomeMessage.embed) {
+        const embed = new EmbedBuilder()
+          .setTitle(processMessageContent(welcomeMessage.embed.title || "", variables))
+          .setDescription(processMessageContent(welcomeMessage.embed.description || "", variables))
+          .setColor(welcomeMessage.embed.color || 0x0099FF);
+
+        if (welcomeMessage.embed.thumbnail) {
+          embed.setThumbnail(member.user.displayAvatarURL());
+        }
+
+        if (welcomeMessage.embed.footer) {
+          embed.setFooter({ 
+            text: processMessageContent(welcomeMessage.embed.footer, variables) 
+          });
+        }
+
+        messageOptions.embeds = [embed];
+      }
+
+      // Send to channel specified in welcome message or fallback to config/system channel
+      const channelId = welcomeMessage.channel_id || config.discord.welcomeChannelId || member.guild.systemChannelId;
+      if (!channelId) {
+        console.log("❌ No welcome channel configured - no channel_id in message, welcomeChannelId, or systemChannelId");
+      } else {
+        console.log(`📍 Attempting to send welcome message to channel: ${channelId}`);
+
+        const channel = member.guild.channels.cache.get(channelId);
+        if (channel) {
+          await channel.send(messageOptions);
+          console.log(`✅ Successfully sent welcome message to ${member.user.username} in #${channel.name}`);
+        } else {
+          console.log(`❌ Could not find channel with ID: ${channelId}`);
+        }
+      }
     }
+
+    // Check verification status for new member
+    await handleVerificationCheck(member);
 
   } catch (error) {
-    console.error("❌ Error sending welcome message:", error);
+    console.error("❌ Error handling new member:", error);
   }
 }
 
@@ -86,16 +88,18 @@ async function handleGuildMemberUpdate(oldMember, newMember) {
     // Find added roles
     const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
     
-    if (addedRoles.size === 0) {
-      return; // No roles were added
+    if (addedRoles.size > 0) {
+      console.log(`🔔 ROLE UPDATE EVENT: ${newMember.user.username} received ${addedRoles.size} new role(s)`);
+      
+      // Process each added role
+      for (const [roleId, role] of addedRoles) {
+        await handleRoleAssignment(newMember, role);
+      }
     }
     
-    console.log(`🔔 ROLE UPDATE EVENT: ${newMember.user.username} received ${addedRoles.size} new role(s)`);
-    
-    // Process each added role
-    for (const [roleId, role] of addedRoles) {
-      await handleRoleAssignment(newMember, role);
-    }
+    // Always check verification status when roles change
+    // This will handle both adding and removing roles that might affect verification
+    await handleVerificationCheck(newMember);
     
   } catch (error) {
     console.error("❌ Error handling member role update:", error);
@@ -192,7 +196,39 @@ async function sendRoleMessage(member, role, roleMessage) {
   }
 }
 
+/**
+ * Handle verification check for a member
+ */
+async function handleVerificationCheck(member) {
+  try {
+    const result = await verificationService.processVerification(member);
+    if (result.processed) {
+      if (result.action === "role_assigned") {
+        console.log(`✅ Auto-verification: Assigned "${result.role}" to ${member.user.username}`);
+      } else if (result.action === "role_removed") {
+        console.log(`❌ Auto-verification: Removed "${result.role}" from ${member.user.username}. Missing: ${result.missingCriteria?.join(', ')}`);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error in verification check:", error);
+  }
+}
+
+/**
+ * Check verification status after ZwiftID is linked
+ * This function can be called from command handlers after ZwiftID linking
+ */
+async function checkVerificationAfterZwiftLink(guild, userId) {
+  try {
+    const member = await guild.members.fetch(userId);
+    await handleVerificationCheck(member);
+  } catch (error) {
+    console.error("❌ Error checking verification after ZwiftID link:", error);
+  }
+}
+
 module.exports = {
   handleGuildMemberAdd,
   handleGuildMemberUpdate,
+  checkVerificationAfterZwiftLink,
 }; 

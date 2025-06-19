@@ -8,6 +8,7 @@ const { generatePowerGraph } = require("../utils/powerGraph");
 const { getWelcomeMessage, processMessageContent } = require("../services/contentApi");
 const { EmbedBuilder } = require("discord.js");
 const config = require("../config/config");
+const { checkVerificationAfterZwiftLink } = require("./memberHandler");
 
 async function handleMyZwiftId(interaction) {
   const zwiftID = interaction.options.getString("zwiftid");
@@ -20,6 +21,9 @@ async function handleMyZwiftId(interaction) {
       await linkUserZwiftId(discordID, username, zwiftID);
       const content = `✅ Your ZwiftID (${zwiftID}) is now linked to your Discord ID!`;
       await ephemeralReplyWithPublish(interaction, content);
+      
+      // Check verification status after linking ZwiftID
+      await checkVerificationAfterZwiftLink(interaction.guild, discordID);
     } catch (error) {
       console.error("❌ Firebase Error:", error);
       await interaction.editReply({ content: "⚠️ Error saving your ZwiftID." });
@@ -72,6 +76,9 @@ async function handleSetZwiftId(interaction) {
       await linkUserZwiftId(targetUser.id, targetUser.username, directZwiftId);
       const content = `✅ Linked ZwiftID **${directZwiftId}** to ${targetUser.username}.`;
       await ephemeralReplyWithPublish(interaction, content);
+      
+      // Check verification status after linking ZwiftID
+      await checkVerificationAfterZwiftLink(interaction.guild, targetUser.id);
     } catch (error) {
       console.error("❌ set_zwiftid Firebase Error:", error);
       await interaction.editReply({ content: "⚠️ Error saving ZwiftID." });

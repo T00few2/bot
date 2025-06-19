@@ -197,7 +197,58 @@ const commands = [
         .setName("role")
         .setDescription("The role to remove from self-selection")
         .setRequired(true)
+    ),
+    
+  // Verification system commands
+  new SlashCommandBuilder()
+    .setName("setup_verification")
+    .setDescription("Setup auto-role verification system (admin only)")
+    .addRoleOption(option =>
+      option
+        .setName("verified_role")
+        .setDescription("The role to assign to verified members")
+        .setRequired(true)
     )
+    .addBooleanOption(option =>
+      option
+        .setName("require_zwiftid")
+        .setDescription("Require users to have a linked ZwiftID")
+        .setRequired(false)
+    )
+    .addIntegerOption(option =>
+      option
+        .setName("minimum_account_age_days")
+        .setDescription("Minimum Discord account age in days")
+        .setRequired(false)
+        .setMinValue(0)
+        .setMaxValue(365)
+    )
+    .addBooleanOption(option =>
+      option
+        .setName("require_server_boost")
+        .setDescription("Require users to be server boosters")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("verification_status")
+    .setDescription("Check verification status for yourself or another user")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("User to check verification status for (optional)")
+        .setRequired(false)
+    ),
+    
+  new SlashCommandBuilder()
+    .setName("process_verification")
+    .setDescription("Manually process verification for all server members (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+    
+  new SlashCommandBuilder()
+    .setName("disable_verification")
+    .setDescription("Disable the auto-verification system (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
     
   new SlashCommandBuilder()

@@ -7,7 +7,7 @@ const { ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
  */
 async function handleSetupVerification(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    // Interaction is already replied to by the main handler, so we use editReply
 
     const verifiedRole = interaction.options.getRole("verified_role");
     const requireZwiftId = interaction.options.getBoolean("require_zwiftid") ?? true;
@@ -82,7 +82,7 @@ async function handleSetupVerification(interaction) {
  */
 async function handleVerificationStatus(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    // Interaction is already replied to by the main handler, so we use editReply
 
     const targetUser = interaction.options.getUser("user") || interaction.user;
     const member = await interaction.guild.members.fetch(targetUser.id);
@@ -180,8 +180,7 @@ async function handleVerificationStatus(interaction) {
  */
 async function handleProcessVerification(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
-
+    // Interaction is already replied to by the main handler, so we use editReply
     await interaction.editReply("🔍 **Processing verification for all members...**\n\nThis may take a moment for large servers.");
 
     const results = await verificationService.processGuildVerification(interaction.guild);
@@ -220,7 +219,7 @@ async function handleProcessVerification(interaction) {
  */
 async function handleDisableVerification(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    // Interaction is already replied to by the main handler, so we use editReply
 
     const settings = {
       enabled: false,

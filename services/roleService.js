@@ -94,7 +94,7 @@ class RoleService {
   }
 
   // NEW: Add role to specific panel
-  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null, roleApprovalChannelId = null, buttonColor = 'Secondary') {
+  async addSelfRoleToPanel(guildId, panelId, roleId, roleName, description = null, emoji = null, requiresApproval = false, teamCaptainId = null, roleApprovalChannelId = null, buttonColor = 'Secondary', requiredRoles = []) {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
@@ -120,6 +120,7 @@ class RoleService {
         teamCaptainId, // The specific user who can approve this role
         roleApprovalChannelId, // Role-specific approval channel
         buttonColor, // Individual button color for this role
+        requiredRoles, // NEW: Individual role prerequisites
         addedAt: new Date()
       });
 
@@ -252,6 +253,33 @@ class RoleService {
     }
   }
 
+  // NEW: Check if user has required roles for a specific role
+  async canUserGetRole(guild, userId, roleConfig) {
+    if (!roleConfig.requiredRoles || roleConfig.requiredRoles.length === 0) {
+      return { canGetRole: true, missingRoles: [] };
+    }
+
+    try {
+      const member = await guild.members.fetch(userId);
+      const missingRoles = [];
+
+      for (const requiredRoleId of roleConfig.requiredRoles) {
+        if (!member.roles.cache.has(requiredRoleId)) {
+          const role = await guild.roles.fetch(requiredRoleId);
+          missingRoles.push(role ? role.name : 'Unknown Role');
+        }
+      }
+
+      return {
+        canGetRole: missingRoles.length === 0,
+        missingRoles: missingRoles
+      };
+    } catch (error) {
+      console.error("Error checking role prerequisites:", error);
+      return { canGetRole: false, missingRoles: ['Error checking permissions'] };
+    }
+  }
+
   // Legacy method - update panel message ID for default panel
   async updatePanelMessageId(guildId, messageId) {
     return this.updatePanelMessageIdForPanel(guildId, 'default', messageId);
@@ -368,7 +396,10 @@ class RoleService {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
       const teamCaptain = role.teamCaptainId ? ` ${teamCaptains.get(role.teamCaptainId)}` : "";
-      return `${role.emoji || ""} **${role.roleName}**${description}${approvalIcon}${teamCaptain}`;
+      const prerequisites = role.requiredRoles && role.requiredRoles.length > 0 
+        ? ` (requires: ${role.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ")})` 
+        : "";
+      return `${role.emoji || ""} **${role.roleName}**${description}${approvalIcon}${teamCaptain}${prerequisites}`;
     });
 
     // Add all roles to message content (no character limits like embed fields)
@@ -545,43 +576,53 @@ class RoleService {
         return { action: "removed", roleName: role.name };
       }
 
-      // If user is adding the role, check if it requires approval
+      // If user is adding the role, check prerequisites and approval requirements
       if (panelId) {
         const panelConfig = await this.getPanelConfig(guild.id, panelId);
         if (panelConfig) {
           const roleConfig = panelConfig.roles.find(r => r.roleId === roleId);
-          if (roleConfig && roleConfig.requiresApproval) {
-            // Submit approval request instead of directly adding role
-            const requestId = await approvalService.submitRoleRequest(
-              guild.id,
-              userId,
-              roleId,
-              role.name,
-              panelId,
-              panelConfig.name,
-              roleConfig.teamCaptainId // Pass the team captain ID
-            );
+          if (roleConfig) {
+            // NEW: Check role prerequisites first
+            const roleAccess = await this.canUserGetRole(guild, userId, roleConfig);
+            if (!roleAccess.canGetRole) {
+              const missingRolesList = roleAccess.missingRoles.join(", ");
+              throw new Error(`You need the following roles first: ${missingRolesList}`);
+            }
 
-            // Send approval request to approval channel
-            await approvalService.sendApprovalRequest(guild.client, requestId, {
-              guildId: guild.id,
-              userId: userId,
-              roleId: roleId,
-              roleName: role.name,
-              panelId: panelId,
-              panelName: panelConfig.name,
-              teamCaptainId: roleConfig.teamCaptainId,
-              approvalChannelId: roleConfig.roleApprovalChannelId || panelConfig.approvalChannelId, // Use role-specific or fallback to panel-level
-              requestedAt: new Date()
-            });
+            // Check if role requires approval
+            if (roleConfig.requiresApproval) {
+              // Submit approval request instead of directly adding role
+              const requestId = await approvalService.submitRoleRequest(
+                guild.id,
+                userId,
+                roleId,
+                role.name,
+                panelId,
+                panelConfig.name,
+                roleConfig.teamCaptainId // Pass the team captain ID
+              );
 
-            return { 
-              action: "approval_requested", 
-              roleName: role.name,
-              message: roleConfig.teamCaptainId 
-                ? "Your request has been submitted for team captain approval. You will receive the role once your team captain approves it."
-                : "Your request has been submitted for admin approval. You will receive the role once an admin approves it."
-            };
+              // Send approval request to approval channel
+              await approvalService.sendApprovalRequest(guild.client, requestId, {
+                guildId: guild.id,
+                userId: userId,
+                roleId: roleId,
+                roleName: role.name,
+                panelId: panelId,
+                panelName: panelConfig.name,
+                teamCaptainId: roleConfig.teamCaptainId,
+                approvalChannelId: roleConfig.roleApprovalChannelId || panelConfig.approvalChannelId, // Use role-specific or fallback to panel-level
+                requestedAt: new Date()
+              });
+
+              return { 
+                action: "approval_requested", 
+                roleName: role.name,
+                message: roleConfig.teamCaptainId 
+                  ? "Your request has been submitted for team captain approval. You will receive the role once your team captain approves it."
+                  : "Your request has been submitted for admin approval. You will receive the role once an admin approves it."
+              };
+            }
           }
         }
       }
@@ -728,6 +769,37 @@ class RoleService {
       return true;
     } catch (error) {
       console.error("Error updating role button color:", error);
+      throw error;
+    }
+  }
+
+  // NEW: Update role prerequisites
+  async updateRolePrerequisites(guildId, panelId, roleId, requiredRoles) {
+    try {
+      const docRef = db.collection(this.collection).doc(guildId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
+        throw new Error(`Panel "${panelId}" not found.`);
+      }
+
+      const data = doc.data();
+      const panel = data.panels[panelId];
+      
+      // Find the role and update it
+      const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
+      if (roleIndex === -1) {
+        throw new Error("Role not found in this panel.");
+      }
+
+      panel.roles[roleIndex].requiredRoles = requiredRoles;
+      panel.updatedAt = new Date();
+      data.updatedAt = new Date();
+
+      await docRef.set(data);
+      return true;
+    } catch (error) {
+      console.error("Error updating role prerequisites:", error);
       throw error;
     }
   }

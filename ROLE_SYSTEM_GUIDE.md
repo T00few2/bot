@@ -4,12 +4,13 @@ The DZR Discord bot includes a comprehensive multi-panel role system that allows
 
 ## 🌟 What's New
 
-The role system now supports **multiple panels** with **channel-specific access control**! You can create different role panels in different channels, each with their own requirements and role sets.
+The role system now supports **multiple panels** with **channel-specific access control** and **individual role prerequisites**! You can create different role panels in different channels, each with their own requirements and role sets. Additionally, individual roles within panels can now require other roles as prerequisites.
 
 ### Key Features
 
 - **Multiple Role Panels**: Create different panels for different purposes
 - **Progressive Access**: Require specific roles to access advanced panels
+- **Individual Role Prerequisites**: Require specific roles before users can get other roles within a panel
 - **Channel-Specific**: Each panel lives in its own channel
 - **Backward Compatible**: All existing setups continue to work
 - **Interactive Management**: Beautiful embeds with role descriptions and emojis
@@ -55,6 +56,7 @@ The role system now supports **multiple panels** with **channel-specific access 
 | `/remove_panel_role` | Remove role from specific panel | `/remove_panel_role panel_id:vip role:@VIP` |
 | `/update_panel` | Refresh specific panel | `/update_panel panel_id:vip` |
 | `/list_panels` | View all panels | `/list_panels` |
+| `/set_role_prerequisites` | Set role prerequisites | `/set_role_prerequisites panel_id:vip role:@VIP required_role_1:@Member` |
 
 ### General Commands
 
@@ -98,18 +100,58 @@ The role system now supports **multiple panels** with **channel-specific access 
 /add_panel_role panel_id:dev-basic role:@DevOps description:"DevOps engineer" emoji:⚙️
 /update_panel panel_id:dev-basic
 
-# Senior roles (requires Developer)
-/setup_panel panel_id:senior channel:#senior-dev name:"Senior Roles" required_role:@Developer
-/add_panel_role panel_id:senior role:@Senior-Dev description:"Senior developer" emoji:🚀
-/add_panel_role panel_id:senior role:@Tech-Lead description:"Technical leadership" emoji:👑
-/add_panel_role panel_id:senior role:@Mentor description:"Mentoring role" emoji:🎓
+# Senior roles (using individual role prerequisites)
+/setup_panel panel_id:senior channel:#senior-dev name:"Senior Roles"
+/add_panel_role panel_id:senior role:@Senior-Dev description:"Senior developer" emoji:🚀 required_role_1:@Developer
+/add_panel_role panel_id:senior role:@Tech-Lead description:"Technical leadership" emoji:👑 required_role_1:@Developer
+/add_panel_role panel_id:senior role:@Mentor description:"Mentoring role" emoji:🎓 required_role_1:@Developer
 /update_panel panel_id:senior
 
-# Leadership (requires Senior-Dev)
-/setup_panel panel_id:leadership channel:#leadership name:"Leadership" required_role:@Senior-Dev
-/add_panel_role panel_id:leadership role:@Project-Manager description:"Project management" emoji:📋
-/add_panel_role panel_id:leadership role:@CTO description:"Chief Technology Officer" emoji:👔
+# Leadership (requires multiple prerequisites)
+/setup_panel panel_id:leadership channel:#leadership name:"Leadership"
+/add_panel_role panel_id:leadership role:@Project-Manager description:"Project management" emoji:📋 required_role_1:@Senior-Dev required_role_2:@Mentor
+/add_panel_role panel_id:leadership role:@CTO description:"Chief Technology Officer" emoji:👔 required_role_1:@Senior-Dev required_role_2:@Tech-Lead
 /update_panel panel_id:leadership
+```
+
+## 🔑 Individual Role Prerequisites
+
+### What Are Role Prerequisites?
+
+Individual role prerequisites allow you to require specific roles before users can obtain other roles **within the same panel**. This is different from panel-level requirements, which control access to entire panels.
+
+### Two Types of Requirements
+
+1. **Panel Requirements**: Control who can access the entire panel
+2. **Individual Role Requirements**: Control who can get specific roles within a panel
+
+### Examples
+
+```bash
+# Panel where everyone can access, but individual roles have requirements
+/setup_panel panel_id:gaming channel:#gaming-roles name:"Gaming Roles"
+
+# Basic roles (no requirements)
+/add_panel_role panel_id:gaming role:@Gamer description:"General gaming enthusiast"
+
+# Advanced roles (require basic roles)
+/add_panel_role panel_id:gaming role:@Pro-Player description:"Professional level player" required_role_1:@Gamer
+/add_panel_role panel_id:gaming role:@Tournament-Host description:"Can host tournaments" required_role_1:@Gamer required_role_2:@Pro-Player
+
+/update_panel panel_id:gaming
+```
+
+### Managing Prerequisites
+
+```bash
+# Add prerequisites when creating roles
+/add_panel_role panel_id:gaming role:@VIP required_role_1:@Member required_role_2:@Active
+
+# Update prerequisites for existing roles
+/set_role_prerequisites panel_id:gaming role:@VIP required_role_1:@Member required_role_2:@Experienced
+
+# Remove prerequisites (leave required roles empty)
+/set_role_prerequisites panel_id:gaming role:@VIP
 ```
 
 ## 🎭 User Experience
@@ -117,10 +159,10 @@ The role system now supports **multiple panels** with **channel-specific access 
 ### For Regular Users
 
 1. **Find Role Panels**: Look for role selection messages in various channels
-2. **Check Requirements**: Some panels may require specific roles first
+2. **Check Requirements**: Some panels may require specific roles first, and individual roles may have their own requirements
 3. **Click Buttons**: Click any role button to add or remove that role
-4. **Progressive Access**: Get basic roles to unlock access to advanced panels
-5. **Get Feedback**: Receive confirmation messages for each action
+4. **Progressive Access**: Get basic roles to unlock access to advanced panels and individual roles
+5. **Get Feedback**: Receive confirmation messages for each action, including missing prerequisite information
 
 ### Access Flow Example
 

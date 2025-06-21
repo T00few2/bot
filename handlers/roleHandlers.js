@@ -237,6 +237,9 @@ async function handleAddPanelRole(interaction) {
     const teamCaptain = interaction.options.getUser("team_captain");
     const approvalChannel = interaction.options.getChannel("approval_channel");
     const buttonColor = interaction.options.getString("button_color") || "Secondary";
+    const requiredRole1 = interaction.options.getRole("required_role_1");
+    const requiredRole2 = interaction.options.getRole("required_role_2");
+    const requiredRole3 = interaction.options.getRole("required_role_3");
 
     // Check if bot can manage this role
     const botMember = interaction.guild.members.me;
@@ -282,6 +285,12 @@ async function handleAddPanelRole(interaction) {
       }
     }
 
+    // Build required roles array
+    const requiredRoles = [];
+    if (requiredRole1) requiredRoles.push(requiredRole1.id);
+    if (requiredRole2) requiredRoles.push(requiredRole2.id);
+    if (requiredRole3) requiredRoles.push(requiredRole3.id);
+
     await roleService.addSelfRoleToPanel(
       interaction.guild.id,
       panelId,
@@ -292,13 +301,21 @@ async function handleAddPanelRole(interaction) {
       requiresApproval,
       teamCaptain ? teamCaptain.id : null,
       approvalChannel ? approvalChannel.id : null,
-      buttonColor
+      buttonColor,
+      requiredRoles
     );
 
     let response = `✅ Added **${role.name}** to panel **${panelId}**!`;
     if (description) response += `\nDescription: ${description}`;
     if (emoji) response += `\nEmoji: ${emoji}`;
     if (buttonColor !== "Secondary") response += `\nButton Color: ${buttonColor}`;
+    if (requiredRoles.length > 0) {
+      const requiredRoleNames = [];
+      if (requiredRole1) requiredRoleNames.push(requiredRole1.name);
+      if (requiredRole2) requiredRoleNames.push(requiredRole2.name);
+      if (requiredRole3) requiredRoleNames.push(requiredRole3.name);
+      response += `\n🔑 **Required Roles**: ${requiredRoleNames.join(", ")}`;
+    }
     if (requiresApproval) {
       response += `\n🔐 **Requires Approval**: Yes`;
       if (teamCaptain) {
@@ -1042,6 +1059,49 @@ async function handleRemoveTeamMember(interaction) {
   }
 }
 
+async function handleSetRolePrerequisites(interaction) {
+  try {
+    const panelId = interaction.options.getString("panel_id");
+    const role = interaction.options.getRole("role");
+    const requiredRole1 = interaction.options.getRole("required_role_1");
+    const requiredRole2 = interaction.options.getRole("required_role_2");
+    const requiredRole3 = interaction.options.getRole("required_role_3");
+
+    // Build required roles array
+    const requiredRoles = [];
+    if (requiredRole1) requiredRoles.push(requiredRole1.id);
+    if (requiredRole2) requiredRoles.push(requiredRole2.id);
+    if (requiredRole3) requiredRoles.push(requiredRole3.id);
+
+    await roleService.updateRolePrerequisites(interaction.guild.id, panelId, role.id, requiredRoles);
+
+    let response = `✅ Updated prerequisites for **${role.name}** in panel **${panelId}**!`;
+    
+    if (requiredRoles.length > 0) {
+      const requiredRoleNames = [];
+      if (requiredRole1) requiredRoleNames.push(requiredRole1.name);
+      if (requiredRole2) requiredRoleNames.push(requiredRole2.name);
+      if (requiredRole3) requiredRoleNames.push(requiredRole3.name);
+      response += `\n🔑 **Required Roles**: ${requiredRoleNames.join(", ")}`;
+    } else {
+      response += `\n🔑 **Required Roles**: None (cleared all prerequisites)`;
+    }
+
+    response += `\n\nUse \`/update_panel panel_id:${panelId}\` to refresh the panel display.`;
+
+    await interaction.editReply(response);
+  } catch (error) {
+    console.error("Error in handleSetRolePrerequisites:", error);
+    if (error.message.includes("not found") && error.message.includes("Panel")) {
+      await interaction.editReply(`❌ Panel "${interaction.options.getString("panel_id")}" not found.`);
+    } else if (error.message.includes("not found")) {
+      await interaction.editReply("❌ Role not found in this panel.");
+    } else {
+      await interaction.editReply("❌ An error occurred while updating role prerequisites.");
+    }
+  }
+}
+
 module.exports = {
   // Legacy handlers
   handleSetupRoles,
@@ -1062,6 +1122,7 @@ module.exports = {
   handleSetPanelApprovalChannel,
   handleSetRoleApprovalChannel,
   handleSetRoleButtonColor,
+  handleSetRolePrerequisites,
   // NEW: Team Captain Management Functions
   handleMyTeam,
   handleRemoveTeamMember,

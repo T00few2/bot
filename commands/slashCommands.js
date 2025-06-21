@@ -326,6 +326,24 @@ const commands = [
         .setDescription("Emoji for this role")
         .setRequired(false)
     )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_1")
+        .setDescription("First role required to get this role")
+        .setRequired(false)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_2")
+        .setDescription("Second role required to get this role")
+        .setRequired(false)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_3")
+        .setDescription("Third role required to get this role")
+        .setRequired(false)
+    )
     .addBooleanOption(option =>
       option
         .setName("requires_approval")
@@ -485,6 +503,42 @@ const commands = [
         .setName("approval_channel")
         .setDescription("Channel for this role's approval requests")
         .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("set_role_prerequisites")
+    .setDescription("Set role prerequisites for a specific role (admin only)")
+    .addStringOption(option =>
+      option
+        .setName("panel_id")
+        .setDescription("Panel ID containing the role")
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("The role to set prerequisites for")
+        .setRequired(true)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_1")
+        .setDescription("First role required to get this role")
+        .setRequired(false)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_2")
+        .setDescription("Second role required to get this role")
+        .setRequired(false)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("required_role_3")
+        .setDescription("Third role required to get this role")
+        .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 

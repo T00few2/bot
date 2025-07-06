@@ -15,7 +15,7 @@ const {
 } = require("./handlers/statsHandler");
 
 // Setup keep-alive server
-// setupKeepAliveServer();
+setupKeepAliveServer();
 
 // Create Discord Bot Client
 const client = new Client({ 

@@ -15,7 +15,7 @@ module.exports = {
   server: {
     port: 3000,
     keepAliveUrl: "https://bot-tdnm.onrender.com",
-    keepAliveInterval: 10 * 60 * 1000, // 10 minutes
+    keepAliveInterval: 24 * 60 * 60 * 1000, // 24 hours. Not needed anymore. Remove at some point
   },
   contentApi: {
     baseUrl: process.env.CONTENT_API_BASE_URL, // Your Google Cloud Function URL

@@ -90,7 +90,7 @@ async function generateSingleRiderStatsImage(rider) {
 }
 
 async function generateTeamStatsImage(ridersArray) {
-  const rowCount = 13;
+  const rowCount = 14;
   const rowHeight = 30;
   const topMargin = 150;
   const leftMargin = 50;
@@ -135,7 +135,7 @@ async function generateTeamStatsImage(ridersArray) {
   // Row labels
   ctx.font = "bold 22px Arial";
   const labels = [
-    "Name", "Pace Group", "vELO Category", "Phenotype",
+    "Name", "ZRS", "Pace Group", "vELO Category", "Phenotype",
     "FTP", "30s", "1m", "5m", "20m",
     "Finishes", "😁 Wins", "☺️ Podiums", "😖 DNFs"
   ];
@@ -150,6 +150,10 @@ async function generateTeamStatsImage(ridersArray) {
     let yOffset = topMargin;
     const xOffset = leftMargin + 180 + col * colWidth;
     ctx.fillText(rider.name, xOffset, yOffset);         yOffset += rowHeight;
+    const zrsValue = (rider && rider.racingScore !== undefined && rider.racingScore !== null)
+      ? String(Math.round(Number(rider.racingScore)))
+      : "-";
+    ctx.fillText(zrsValue, xOffset, yOffset);             yOffset += rowHeight;
     ctx.fillText(rider.zpCategory, xOffset, yOffset);     yOffset += rowHeight;
     const veloCat = `${rider.race.current.mixed.category} (${rider.race.current.rating.toFixed(0)})`;
     ctx.fillText(veloCat, xOffset, yOffset);              yOffset += rowHeight;

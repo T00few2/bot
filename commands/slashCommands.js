@@ -608,6 +608,28 @@ const commands = [
         .setDescription("Optional reason for removal")
         .setRequired(false)
     ),
+
+  new SlashCommandBuilder()
+    .setName("add_team_member")
+    .setDescription("Add a member to your team (team captains only)")
+    .addRoleOption(option =>
+      option
+        .setName("team_role")
+        .setDescription("The team role to add the member to")
+        .setRequired(true)
+    )
+    .addUserOption(option =>
+      option
+        .setName("member")
+        .setDescription("The Discord user to add")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("reason")
+        .setDescription("Optional note for the member")
+        .setRequired(false)
+    ),
 ].map(cmd => cmd.toJSON());
 
 module.exports = commands; 

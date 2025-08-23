@@ -33,6 +33,7 @@ const {
   handleSetRolePrerequisites,
   handleMyTeam,
   handleRemoveTeamMember,
+  handleAddTeamMember,
 } = require("./roleHandlers");
 const {
   handleSetupVerification,
@@ -465,6 +466,7 @@ async function handleInteractions(interaction) {
       // NEW: Team Captain Management Commands
       "my_team": handleMyTeam,
       "remove_team_member": handleRemoveTeamMember,
+      "add_team_member": handleAddTeamMember,
       // Verification system commands
       "setup_verification": handleSetupVerification,
       "verification_status": handleVerificationStatus,

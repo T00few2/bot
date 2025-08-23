@@ -500,7 +500,7 @@ async function handleRolesHelp(interaction) {
         },
         {
           name: "👨‍✈️ Team Captain Commands",
-          value: "**View Teams:** `/my_team` - See all your teams and members\n**Remove Member:** `/remove_team_member team_role:@Team-Red member:@rider reason:\"inactive\"`\n**Approve/Reject:** React ✅/❌ in your team's approval channel",
+          value: "**View Teams:** `/my_team` - See all your teams and members\n**Add Member:** `/add_team_member team_role:@Team-Red member:@rider reason:\"welcome\"`\n**Remove Member:** `/remove_team_member team_role:@Team-Red member:@rider reason:\"inactive\"`\n**Approve/Reject:** React ✅/❌ in your team's approval channel",
           inline: false
         },
         {
@@ -939,7 +939,7 @@ async function handleMyTeam(interaction) {
       embed.addFields([
         { 
           name: "🛠️ Team Management", 
-          value: `• **Remove Member**: \`/remove_team_member team_role:${team.roleName} member:@username\`\n• **View Approvals**: Check your approval channel for join requests\n• **Team Panel**: Members can join/leave through the role panel`, 
+          value: `• **Add Member**: \`/add_team_member team_role:${team.roleName} member:@username\`\n• **Remove Member**: \`/remove_team_member team_role:${team.roleName} member:@username\`\n• **View Approvals**: Check your approval channel for join requests\n• **Team Panel**: Members can join/leave through the role panel`, 
           inline: false 
         }
       ]);
@@ -1059,6 +1059,106 @@ async function handleRemoveTeamMember(interaction) {
   }
 }
 
+async function handleAddTeamMember(interaction) {
+  try {
+    const teamRole = interaction.options.getRole("team_role");
+    const memberToAdd = interaction.options.getUser("member");
+    const reason = interaction.options.getString("reason") || "No reason provided";
+    const userId = interaction.user.id;
+
+    // Check if the user is a team captain for this role
+    const panels = await roleService.getAllPanels(interaction.guild.id);
+    let isTeamCaptain = false;
+    let teamInfo = null;
+
+    for (const [panelId, panel] of Object.entries(panels)) {
+      const roleConfig = panel.roles.find(role => role.roleId === teamRole.id && role.teamCaptainId === userId);
+      if (roleConfig) {
+        isTeamCaptain = true;
+        teamInfo = { panelId, panelName: panel.name, roleConfig };
+        break;
+      }
+    }
+
+    if (!isTeamCaptain) {
+      await interaction.editReply(`❌ You are not the team captain for **${teamRole.name}**.`);
+      return;
+    }
+
+    // Fetch target member and check current membership
+    const targetMember = await interaction.guild.members.fetch(memberToAdd.id);
+    if (targetMember.roles.cache.has(teamRole.id)) {
+      await interaction.editReply(`❌ **${targetMember.displayName}** is already a member of **${teamRole.name}**.`);
+      return;
+    }
+
+    // Check prerequisites for this role if configured
+    const roleAccess = await roleService.canUserGetRole(interaction.guild, memberToAdd.id, teamInfo.roleConfig);
+    if (!roleAccess.canGetRole) {
+      const missingRolesList = roleAccess.missingRoles.join(", ");
+      await interaction.editReply(`❌ Cannot add member. They are missing required role(s): **${missingRolesList}**`);
+      return;
+    }
+
+    // If role requires approval, captain override should directly assign
+    // Ensure bot can manage this role
+    const botMember = interaction.guild.members.me;
+    if (teamRole.position >= botMember.roles.highest.position) {
+      await interaction.editReply("❌ I cannot manage this role. Please move my role above the team role in Server Settings.");
+      return;
+    }
+
+    await targetMember.roles.add(teamRole.id);
+
+    // Notify the added member
+    try {
+      const captain = await interaction.guild.members.fetch(userId);
+
+      const addedEmbed = new EmbedBuilder()
+        .setTitle("✅ Added to Team")
+        .setDescription("You have been added to a team")
+        .setColor(0x00FF00)
+        .addFields([
+          { name: "🏆 Team", value: `<@&${teamRole.id}>`, inline: true },
+          { name: "🏠 Server", value: interaction.guild.name, inline: true },
+          { name: "👨‍✈️ Added By", value: `${captain.displayName} (Team Captain)`, inline: true },
+          { name: "📝 Note", value: reason, inline: false },
+          { name: "ℹ️ Info", value: "You can leave this team anytime via the role panel.", inline: false }
+        ])
+        .setThumbnail(interaction.guild.iconURL())
+        .setFooter({ text: `${interaction.guild.name} • Team Management` })
+        .setTimestamp();
+
+      await targetMember.send({ embeds: [addedEmbed] });
+    } catch (dmError) {
+      console.log(`Could not send add notification to ${memberToAdd.tag}: ${dmError.message}`);
+    }
+
+    // Confirmation to captain
+    const confirmationEmbed = new EmbedBuilder()
+      .setTitle("✅ Team Member Added")
+      .setDescription("Successfully added team member")
+      .setColor(0x00FF00)
+      .addFields([
+        { name: "🚴 New Member", value: `${targetMember.displayName} (${memberToAdd.tag})`, inline: true },
+        { name: "🏆 To Team", value: teamRole.toString(), inline: true },
+        { name: "📝 Note", value: reason, inline: false },
+        { name: "👥 Team Status", value: `${teamRole.members.size} members now`, inline: true }
+      ])
+      .setFooter({ text: `${interaction.guild.name} • Team Management` })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [confirmationEmbed] });
+
+    // Optional log
+    console.log(`Team Captain ${interaction.user.tag} added ${memberToAdd.tag} to ${teamRole.name}. Note: ${reason}`);
+
+  } catch (error) {
+    console.error("Error in handleAddTeamMember:", error);
+    await interaction.editReply("❌ An error occurred while adding the team member.");
+  }
+}
+
 async function handleSetRolePrerequisites(interaction) {
   try {
     const panelId = interaction.options.getString("panel_id");
@@ -1126,4 +1226,5 @@ module.exports = {
   // NEW: Team Captain Management Functions
   handleMyTeam,
   handleRemoveTeamMember,
+  handleAddTeamMember,
 }; 

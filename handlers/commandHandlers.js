@@ -9,6 +9,7 @@ const { getWelcomeMessage, processMessageContent } = require("../services/conten
 const { EmbedBuilder } = require("discord.js");
 const config = require("../config/config");
 const { checkVerificationAfterZwiftLink } = require("./memberHandler");
+const { MessageFlags } = require("discord.js");
 
 async function handleMyZwiftId(interaction) {
   const zwiftID = interaction.options.getString("zwiftid");
@@ -432,6 +433,65 @@ async function handleTestWelcome(interaction) {
   }
 }
 
+/**
+ * /new_members
+ * Mention members who joined within N days and currently have a specified role
+ */
+async function handleNewMembers(interaction) {
+  try {
+    // Admin-only guard
+    if (!interaction.member.permissions.has('Administrator')) {
+      await interaction.editReply({ content: "❌ This command is for administrators only." });
+      return;
+    }
+
+    const withinDays = interaction.options.getInteger("within_days") ?? 7;
+    const role = interaction.options.getRole("role");
+
+    // Ensure we have member cache
+    await interaction.guild.members.fetch();
+
+    const now = Date.now();
+    const threshold = now - withinDays * 24 * 60 * 60 * 1000;
+
+    // Filter: joined within window AND has specified role
+    const matching = interaction.guild.members.cache.filter(m => {
+      const joinedTs = m.joinedTimestamp ?? 0;
+      return joinedTs >= threshold && m.roles.cache.has(role.id);
+    });
+
+    if (matching.size === 0) {
+      await interaction.editReply({ content: `ℹ️ No members joined in the last ${withinDays} day(s) with role ${role}.` });
+      return;
+    }
+
+    // Build mention message in chunks under 2000 chars
+    const header = `👋 New members (last ${withinDays} day(s)) with ${role} (${matching.size}):`;
+    const mentions = matching.map(m => `<@${m.id}>`).join(" ");
+
+    const messages = [];
+    let current = header;
+    for (const mention of mentions.split(" ")) {
+      if ((current + " " + mention).length > 1900) {
+        messages.push(current);
+        current = mention;
+      } else {
+        current = current.length === 0 ? mention : current + " " + mention;
+      }
+    }
+    if (current.length > 0) messages.push(current);
+
+    // Send first chunk via ephemeral with publish button; follow with additional chunks
+    await ephemeralReplyWithPublish(interaction, messages[0]);
+    for (let i = 1; i < messages.length; i++) {
+      await interaction.followUp({ content: messages[i], flags: MessageFlags.Ephemeral });
+    }
+  } catch (error) {
+    console.error("❌ new_members Error:", error);
+    await interaction.editReply({ content: "⚠️ Error generating new members list." });
+  }
+}
+
 module.exports = {
   handleMyZwiftId,
   handleSetZwiftId,
@@ -442,4 +502,5 @@ module.exports = {
   handleEventResults,
   handleWhoAmI,
   handleTestWelcome,
+  handleNewMembers,
 }; 

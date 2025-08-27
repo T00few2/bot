@@ -142,6 +142,25 @@ const commands = [
         .setDescription("Search string to match in event titles")
         .setRequired(true)
     ),
+  // new_members
+  new SlashCommandBuilder()
+    .setName("new_members")
+    .setDescription("Mention members who joined within N days and have a role")
+    .addIntegerOption(option =>
+      option
+        .setName("within_days")
+        .setDescription("Number of days back to include (default: 7)")
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(365)
+    )
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("Only include members who currently have this role")
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
   // test_welcome (admin only)
   new SlashCommandBuilder()
     .setName("test_welcome")

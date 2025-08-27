@@ -36,23 +36,34 @@ async function ephemeralReplyWithPublish(interaction, content, files = []) {
  */
 async function handlePublishButton(interaction, uniqueId) {
   const stored = ephemeralStore.get(uniqueId);
-  if (!stored) {
-    await interaction.reply({ 
-      content: "❌ Could not find the content to publish.", 
-      flags: MessageFlags.Ephemeral 
+  if (stored) {
+    ephemeralStore.delete(uniqueId);
+    await interaction.deferUpdate();
+    await interaction.followUp({
+      content: stored.content,
+      files: stored.files ?? [],
+      ephemeral: false
     });
-    return false;
+    await interaction.editReply({ components: [] });
+    return true;
   }
-  
-  ephemeralStore.delete(uniqueId);
-  await interaction.deferUpdate();
-  await interaction.followUp({
-    content: stored.content,
-    files: stored.files ?? [],
-    ephemeral: false
+
+  // Fallback: publish the content from the ephemeral message itself (text-only)
+  const fallbackContent = interaction?.message?.content;
+  if (fallbackContent && fallbackContent.length > 0) {
+    await interaction.deferUpdate();
+    await interaction.followUp({ content: fallbackContent, ephemeral: false });
+    try {
+      await interaction.editReply({ components: [] });
+    } catch {}
+    return true;
+  }
+
+  await interaction.reply({ 
+    content: "❌ Could not find the content to publish.", 
+    flags: MessageFlags.Ephemeral 
   });
-  await interaction.editReply({ components: [] });
-  return true;
+  return false;
 }
 
 module.exports = {

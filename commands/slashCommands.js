@@ -146,6 +146,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("new_members")
     .setDescription("Mention members who joined within N days and have a role")
+    .addRoleOption(option =>
+      option
+        .setName("role")
+        .setDescription("Only include members who currently have this role")
+        .setRequired(true)
+    )
     .addIntegerOption(option =>
       option
         .setName("within_days")
@@ -153,12 +159,6 @@ const commands = [
         .setRequired(false)
         .setMinValue(1)
         .setMaxValue(365)
-    )
-    .addRoleOption(option =>
-      option
-        .setName("role")
-        .setDescription("Only include members who currently have this role")
-        .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
   // test_welcome (admin only)

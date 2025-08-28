@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
+const { sweepGuildForNewMembers } = require("./newMemberService");
 
 /**
  * Check for and send scheduled messages (both time-based and probability-based)
@@ -13,6 +14,9 @@ async function checkScheduledMessages(client) {
     
     // Check probability-based messages (only once per day)
     await checkProbabilityBasedMessages(client);
+    
+    // Sweep New Member role assignments once per hour
+    await checkNewMemberSweeps(client);
     
   } catch (error) {
     console.error("❌ Error checking scheduled messages:", error);
@@ -40,6 +44,22 @@ async function checkTimeBasedMessages(client) {
     }
   } catch (error) {
     console.error("❌ Error checking time-based scheduled messages:", error);
+  }
+}
+
+let lastNewMemberSweepHour = null;
+async function checkNewMemberSweeps(client) {
+  try {
+    const now = new Date();
+    const currentHour = now.getUTCHours();
+    if (currentHour === lastNewMemberSweepHour) return; // once per hour
+    lastNewMemberSweepHour = currentHour;
+
+    for (const guild of client.guilds.cache.values()) {
+      await sweepGuildForNewMembers(guild);
+    }
+  } catch (error) {
+    console.error("❌ Error running New Member sweep:", error);
   }
 }
 

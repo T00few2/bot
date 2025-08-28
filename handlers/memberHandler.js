@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { getWelcomeMessage, processMessageContent } = require("../services/contentApi");
 const config = require("../config/config");
 const verificationService = require("../services/verificationService");
+const { ensureNewMemberRole } = require("../services/newMemberService");
 
 /**
  * Handle new member joining the server
@@ -71,6 +72,9 @@ async function handleGuildMemberAdd(member) {
     // Check verification status for new member
     await handleVerificationCheck(member);
 
+    // Ensure New Member role assignment on join
+    await ensureNewMemberRole(member);
+
   } catch (error) {
     console.error("❌ Error handling new member:", error);
   }
@@ -100,6 +104,9 @@ async function handleGuildMemberUpdate(oldMember, newMember) {
     // Always check verification status when roles change
     // This will handle both adding and removing roles that might affect verification
     await handleVerificationCheck(newMember);
+
+    // Ensure New Member role is correct after any role changes
+    await ensureNewMemberRole(newMember);
     
   } catch (error) {
     console.error("❌ Error handling member role update:", error);

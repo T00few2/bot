@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
 const { sweepGuildForNewMembers } = require("./newMemberService");
 const config = require("../config/config");
@@ -115,6 +115,14 @@ async function updateKmsStatus(client) {
     ].filter(Boolean);
     const content = contentLines.join("\n");
 
+    // Build signup toggle button
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`kms_toggle_role_${roleId}`)
+        .setLabel("Tilmeld/Afmeld")
+        .setStyle(ButtonStyle.Primary)
+    );
+
     // Retrieve existing status message ID
     const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
     const existing = await getBotState(stateKey);
@@ -123,16 +131,16 @@ async function updateKmsStatus(client) {
     try {
       if (messageId) {
         const msg = await channel.messages.fetch(messageId);
-        await msg.edit({ content });
+        await msg.edit({ content, components: [row] });
       } else {
-        const sent = await channel.send({ content });
+        const sent = await channel.send({ content, components: [row] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       }
     } catch (e) {
       // If edit failed (deleted?), send a new message
       try {
-        const sent = await channel.send({ content });
+        const sent = await channel.send({ content, components: [row] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       } catch (sendErr) {

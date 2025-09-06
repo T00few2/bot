@@ -165,6 +165,31 @@ async function handleInteractions(interaction) {
       return;
     }
 
+    // KMS signup/withdraw toggle button
+    if (interaction.isButton() && interaction.customId.startsWith("kms_toggle_role_")) {
+      try {
+        await interaction.deferReply({ ephemeral: true });
+
+        const roleId = interaction.customId.replace("kms_toggle_role_", "");
+        const member = await interaction.guild.members.fetch(interaction.user.id);
+        const hasRole = member.roles.cache.has(roleId);
+
+        if (hasRole) {
+          await member.roles.remove(roleId);
+          await interaction.editReply("🚪 Du er afmeldt fra Klubmesterskab.");
+        } else {
+          await member.roles.add(roleId);
+          await interaction.editReply("✅ Du er tilmeldt Klubmesterskab.");
+        }
+      } catch (error) {
+        console.error("Error handling KMS toggle:", error);
+        try {
+          await interaction.editReply("❌ Kunne ikke opdatere din tilmelding. Tjek bot-rollerettigheder.");
+        } catch {}
+      }
+      return;
+    }
+
     // Handle role toggle buttons
     if (interaction.isButton() && interaction.customId.startsWith("role_toggle_")) {
       const parts = interaction.customId.split("_");

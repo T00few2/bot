@@ -103,10 +103,9 @@ async function updateKmsStatus(client) {
       const days = Math.floor(absMs / (24 * 3600 * 1000));
       const hours = Math.floor((absMs % (24 * 3600 * 1000)) / (3600 * 1000));
       const minutes = Math.floor((absMs % (3600 * 1000)) / (60 * 1000));
-      const unixTs = Math.floor(eventDate.getTime() / 1000);
       const prefix = diffMs >= 0 ? "⏳ Countdown" : "✅ Event started";
       const human = `${days}d ${hours}t ${minutes}m`;
-      countdownLine = `${prefix}: ${human} • <t:${unixTs}:F> (<t:${unixTs}:R>)`;
+      countdownLine = `${prefix}: ${human}`;
     }
 
     const contentLines = [

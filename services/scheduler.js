@@ -124,6 +124,14 @@ async function updateKmsStatus(client) {
         .setStyle(ButtonStyle.Primary)
     );
 
+    // Build link button row (appears after signup button)
+    const linkRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("Se tilmeldte")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://www.dzrracingseries.com/members-zone/klubmesterskab")
+    );
+
     // Retrieve existing status message ID
     const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
     const existing = await getBotState(stateKey);
@@ -132,16 +140,16 @@ async function updateKmsStatus(client) {
     try {
       if (messageId) {
         const msg = await channel.messages.fetch(messageId);
-        await msg.edit({ content, components: [row] });
+        await msg.edit({ content, components: [row, linkRow] });
       } else {
-        const sent = await channel.send({ content, components: [row] });
+        const sent = await channel.send({ content, components: [row, linkRow] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       }
     } catch (e) {
       // If edit failed (deleted?), send a new message
       try {
-        const sent = await channel.send({ content, components: [row] });
+        const sent = await channel.send({ content, components: [row, linkRow] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       } catch (sendErr) {

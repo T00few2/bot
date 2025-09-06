@@ -283,4 +283,5 @@ function startScheduler(client) {
 module.exports = {
   startScheduler,
   checkScheduledMessages,
+  updateKmsStatus,
 }; 

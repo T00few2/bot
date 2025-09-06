@@ -2,6 +2,7 @@ const { ActionRowBuilder, StringSelectMenuBuilder, InteractionResponseType, Mess
 const roleService = require("../services/roleService");
 const { linkUserZwiftId, getTodaysClubStats } = require("../services/firebase");
 const { handlePublishButton, ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
+const { updateKmsStatus } = require("../services/scheduler");
 const {
   handleMyZwiftId,
   handleSetZwiftId,
@@ -190,6 +191,13 @@ async function handleInteractions(interaction) {
         } else {
           await member.roles.add(roleId);
           await interaction.editReply("✅ Du er tilmeldt Klubmesterskab.");
+        }
+
+        // Refresh KMS status message immediately
+        try {
+          await updateKmsStatus(interaction.client);
+        } catch (updErr) {
+          console.log("KMS status update after toggle failed:", updErr?.message);
         }
       } catch (error) {
         console.error("Error handling KMS toggle:", error);

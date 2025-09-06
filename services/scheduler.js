@@ -112,30 +112,21 @@ async function updateKmsStatus(client) {
       "🏆 DZR Klubmesterskab - tirsdag 28. oktober 19:30🏆",
       countdownLine,
       `📝 Signups: ${signupCount}`,
-      "Se tilmeldte:",
+      "Tilmeld/afmeld dig her:",
     ].filter(Boolean);
     const content = contentLines.join("\n");
 
-    // Build requirement note + signup toggle button on same row
+    // Build signup toggle button (single button)
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`kms_requirement_${roleId}`)
-        .setLabel("(requires: ✅Verified Member)")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId(`kms_toggle_role_${roleId}`)
         .setLabel("Tilmeld/afmeld")
         .setStyle(ButtonStyle.Primary)
     );
 
-    // Build link button row in same message
-    const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel("link")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.dzrracingseries.com/members-zone/klubmesterskab")
-    );
+    // Build embed containing masked link text
+    const infoEmbed = new EmbedBuilder()
+      .setDescription("Se tilmeldte: [link](https://www.dzrracingseries.com/members-zone/klubmesterskab)");
 
     // Retrieve existing status message ID
     const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
@@ -145,16 +136,16 @@ async function updateKmsStatus(client) {
     try {
       if (messageId) {
         const msg = await channel.messages.fetch(messageId);
-        await msg.edit({ content, components: [row1, row2] });
+        await msg.edit({ content, embeds: [infoEmbed], components: [row1] });
       } else {
-        const sent = await channel.send({ content, components: [row1, row2] });
+        const sent = await channel.send({ content, embeds: [infoEmbed], components: [row1] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       }
     } catch (e) {
       // If edit failed (deleted?), send a new message
       try {
-        const sent = await channel.send({ content, components: [row1, row2] });
+        const sent = await channel.send({ content, embeds: [infoEmbed], components: [row1] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       } catch (sendErr) {

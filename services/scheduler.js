@@ -113,6 +113,7 @@ async function updateKmsStatus(client) {
       countdownLine,
       `📝 Signups: ${signupCount}`,
       "Tilmeld/afmeld dig her:",
+      "Se tilmeldte: [link](https://www.dzrracingseries.com/members-zone/klubmesterskab)",
     ].filter(Boolean);
     const content = contentLines.join("\n");
 
@@ -124,9 +125,7 @@ async function updateKmsStatus(client) {
         .setStyle(ButtonStyle.Primary)
     );
 
-    // Build embed containing masked link text
-    const infoEmbed = new EmbedBuilder()
-      .setDescription("Se tilmeldte: [link](https://www.dzrracingseries.com/members-zone/klubmesterskab)");
+    // No extra embeds needed; show masked link in content
 
     // Retrieve existing status message ID
     const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
@@ -136,16 +135,16 @@ async function updateKmsStatus(client) {
     try {
       if (messageId) {
         const msg = await channel.messages.fetch(messageId);
-        await msg.edit({ content, embeds: [infoEmbed], components: [row1] });
+        await msg.edit({ content, components: [row1] });
       } else {
-        const sent = await channel.send({ content, embeds: [infoEmbed], components: [row1] });
+        const sent = await channel.send({ content, components: [row1] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       }
     } catch (e) {
       // If edit failed (deleted?), send a new message
       try {
-        const sent = await channel.send({ content, embeds: [infoEmbed], components: [row1] });
+        const sent = await channel.send({ content, components: [row1] });
         messageId = sent.id;
         await setBotState(stateKey, { messageId });
       } catch (sendErr) {

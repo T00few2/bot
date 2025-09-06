@@ -84,15 +84,8 @@ async function updateKmsStatus(client) {
     // Ensure member cache is populated for accurate role counts
     await channel.guild.members.fetch();
 
-    // Count members with the KMS role
-    const role = channel.guild.roles.cache.get(roleId) || await channel.guild.roles.fetch(roleId).catch(() => null);
-    let signupCount = 0;
-    if (role) {
-      signupCount = role.members.size;
-    } else {
-      // Fallback: compute from member cache if role fetch failed
-      signupCount = channel.guild.members.cache.filter(m => m.roles.cache.has(roleId)).size;
-    }
+    // Count members with the KMS role from the latest member cache
+    const signupCount = channel.guild.members.cache.filter(m => m.roles.cache.has(roleId)).size;
 
     // Build countdown
     let countdownLine = "";

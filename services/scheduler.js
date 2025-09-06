@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
 const { sweepGuildForNewMembers } = require("./newMemberService");
+const config = require("../config/config");
+const { getBotState, setBotState } = require("./firebase");
 
 /**
  * Check for and send scheduled messages (both time-based and probability-based)
@@ -17,6 +19,8 @@ async function checkScheduledMessages(client) {
     
     // Sweep New Member role assignments once per hour
     await checkNewMemberSweeps(client);
+    // Update KMS status message periodically
+    await updateKmsStatus(client);
     
   } catch (error) {
     console.error("❌ Error checking scheduled messages:", error);
@@ -60,6 +64,101 @@ async function checkNewMemberSweeps(client) {
     }
   } catch (error) {
     console.error("❌ Error running New Member sweep:", error);
+  }
+}
+
+// KMS status updater (countdown + signup count)
+let lastKmsUpdateEpochMin = null;
+async function updateKmsStatus(client) {
+  try {
+    const channelId = config.kms?.channelId || process.env.KMS_CHANNEL_ID || "1413820948536365190";
+    const roleId = config.kms?.roleId || process.env.KMS_ROLE_ID || "1413793742808416377";
+    const eventIso = config.kms?.eventIso || process.env.KMS_EVENT_ISO; // e.g., 2025-10-28T18:30:00Z
+
+    if (!channelId || !roleId) return; // Not configured
+
+    // Throttle to once every 5 minutes, except within 60 minutes of event (then every minute)
+    const now = new Date();
+    const epochMin = Math.floor(now.getTime() / 60000);
+    let throttleMinutes = 5;
+    if (eventIso) {
+      const eventTime = new Date(eventIso).getTime();
+      if (!Number.isNaN(eventTime)) {
+        const minsToEvent = Math.floor((eventTime - now.getTime()) / 60000);
+        if (minsToEvent <= 60 && minsToEvent >= -120) {
+          throttleMinutes = 1;
+        }
+      }
+    }
+    if (lastKmsUpdateEpochMin !== null && (epochMin - lastKmsUpdateEpochMin) < throttleMinutes) return;
+
+    const channel = client.channels.cache.get(channelId) || await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.guild) return;
+
+    // Ensure member cache is populated for accurate role counts
+    await channel.guild.members.fetch();
+
+    // Count members with the KMS role
+    const role = channel.guild.roles.cache.get(roleId) || await channel.guild.roles.fetch(roleId).catch(() => null);
+    let signupCount = 0;
+    if (role) {
+      signupCount = role.members.size;
+    } else {
+      // Fallback: compute from member cache if role fetch failed
+      signupCount = channel.guild.members.cache.filter(m => m.roles.cache.has(roleId)).size;
+    }
+
+    // Build countdown
+    let countdownLine = "";
+    if (eventIso) {
+      const eventDate = new Date(eventIso);
+      const diffMs = eventDate.getTime() - now.getTime();
+      const absMs = Math.abs(diffMs);
+      const days = Math.floor(absMs / (24 * 3600 * 1000));
+      const hours = Math.floor((absMs % (24 * 3600 * 1000)) / (3600 * 1000));
+      const minutes = Math.floor((absMs % (3600 * 1000)) / (60 * 1000));
+      const seconds = Math.floor((absMs % (60 * 1000)) / 1000);
+      const unixTs = Math.floor(eventDate.getTime() / 1000);
+      const prefix = diffMs >= 0 ? "⏳ Countdown" : "✅ Event started";
+      const human = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      countdownLine = `${prefix}: ${human} • <t:${unixTs}:F> (<t:${unixTs}:R>)`;
+    }
+
+    const contentLines = [
+      "🏆 DZR Klubmesterskab",
+      countdownLine,
+      `📝 Signups: ${signupCount}`,
+    ].filter(Boolean);
+    const content = contentLines.join("\n");
+
+    // Retrieve existing status message ID
+    const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
+    const existing = await getBotState(stateKey);
+    let messageId = existing?.messageId;
+
+    try {
+      if (messageId) {
+        const msg = await channel.messages.fetch(messageId);
+        await msg.edit({ content });
+      } else {
+        const sent = await channel.send({ content });
+        messageId = sent.id;
+        await setBotState(stateKey, { messageId });
+      }
+    } catch (e) {
+      // If edit failed (deleted?), send a new message
+      try {
+        const sent = await channel.send({ content });
+        messageId = sent.id;
+        await setBotState(stateKey, { messageId });
+      } catch (sendErr) {
+        console.error("❌ Failed to send KMS status message:", sendErr.message);
+      }
+    }
+
+    lastKmsUpdateEpochMin = epochMin;
+  } catch (error) {
+    console.error("❌ Error updating KMS status:", error);
   }
 }
 

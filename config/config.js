@@ -7,6 +7,11 @@ module.exports = {
     welcomeChannelId: process.env.DISCORD_WELCOME_CHANNEL_ID, // Optional: specific welcome channel
     approvalChannelId: process.env.DISCORD_APPROVAL_CHANNEL_ID, // Optional: channel for role approval requests
   },
+  kms: {
+    channelId: process.env.KMS_CHANNEL_ID, // Discord channel ID for Klubmesterskab updates
+    roleId: process.env.KMS_ROLE_ID || '1413793742808416377', // Klubmesterskab role ID
+    eventIso: process.env.KMS_EVENT_ISO, // ISO datetime for event start, e.g., 2025-10-28T18:30:00Z (19:30 CET)
+  },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,

@@ -75,10 +75,25 @@ async function searchRidersByName(searchTerm) {
   );
 }
 
+/**
+ * Simple key-value bot state storage
+ */
+async function getBotState(key) {
+  const doc = await db.collection("bot_state").doc(String(key)).get();
+  if (!doc.exists) return null;
+  return doc.data();
+}
+
+async function setBotState(key, data) {
+  await db.collection("bot_state").doc(String(key)).set(data, { merge: true });
+}
+
 module.exports = {
   db,
   getUserZwiftId,
   linkUserZwiftId,
   getTodaysClubStats,
   searchRidersByName,
+  getBotState,
+  setBotState,
 }; 

@@ -112,7 +112,7 @@ async function updateKmsStatus(client) {
       "🏆 DZR Klubmesterskab - tirsdag 28. oktober 19:30🏆",
       countdownLine,
       `📝 Signups: ${signupCount}`,
-      "Se tilmeldte: [link](https://www.dzrracingseries.com/members-zone/klubmesterskab)",
+      "Se tilmeldte: [link](<https://www.dzrracingseries.com/members-zone/klubmesterskab>)",
       "Tilmeld/afmeld dig her:",
     ].filter(Boolean);
     const content = contentLines.join("\n");

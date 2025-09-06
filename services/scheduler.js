@@ -112,7 +112,6 @@ async function updateKmsStatus(client) {
       "🏆 DZR Klubmesterskab - tirsdag 28. oktober 19:30🏆",
       countdownLine,
       `📝 Signups: ${signupCount}`,
-      "Tilmeld/afmeld dig her: (requires: <@&1385216556166025347>)",
     ].filter(Boolean);
     const content = contentLines.join("\n");
 
@@ -120,17 +119,15 @@ async function updateKmsStatus(client) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`kms_toggle_role_${roleId}`)
-        .setLabel("Tilmeld/Afmeld")
+        .setLabel("Tilmeld/afmeld (requires: ✅Verified Member)")
         .setStyle(ButtonStyle.Primary)
     );
 
-    // Build link button row (appears after signup button)
-    const linkRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel("Se tilmeldte")
-        .setStyle(ButtonStyle.Link)
-        .setURL("https://www.dzrracingseries.com/members-zone/klubmesterskab")
-    );
+    // Link message text (separate message shown after the signup button)
+    const linkText = [
+      "Se tilmeldte:",
+      "https://www.dzrracingseries.com/members-zone/klubmesterskab"
+    ].join("\n");
 
     // Retrieve existing status message ID
     const stateKey = `kms_status_${channel.guild.id}_${channel.id}`;
@@ -140,18 +137,39 @@ async function updateKmsStatus(client) {
     try {
       if (messageId) {
         const msg = await channel.messages.fetch(messageId);
-        await msg.edit({ content, components: [row, linkRow] });
+        await msg.edit({ content, components: [row] });
+        // Ensure the link message exists/updated
+        let linkMessageId = existing?.linkMessageId;
+        if (linkMessageId) {
+          try {
+            const linkMsg = await channel.messages.fetch(linkMessageId);
+            await linkMsg.edit({ content: linkText, components: [] });
+          } catch {
+            const sentLink = await channel.send({ content: linkText });
+            linkMessageId = sentLink.id;
+            await setBotState(stateKey, { messageId, linkMessageId });
+          }
+        } else {
+          const sentLink = await channel.send({ content: linkText });
+          linkMessageId = sentLink.id;
+          await setBotState(stateKey, { messageId, linkMessageId });
+        }
       } else {
-        const sent = await channel.send({ content, components: [row, linkRow] });
+        const sent = await channel.send({ content, components: [row] });
         messageId = sent.id;
-        await setBotState(stateKey, { messageId });
+        // Send the link message as a separate message so it appears after the button
+        const sentLink = await channel.send({ content: linkText });
+        const linkMessageId = sentLink.id;
+        await setBotState(stateKey, { messageId, linkMessageId });
       }
     } catch (e) {
       // If edit failed (deleted?), send a new message
       try {
-        const sent = await channel.send({ content, components: [row, linkRow] });
+        const sent = await channel.send({ content, components: [row] });
         messageId = sent.id;
-        await setBotState(stateKey, { messageId });
+        const sentLink = await channel.send({ content: linkText });
+        const linkMessageId = sentLink.id;
+        await setBotState(stateKey, { messageId, linkMessageId });
       } catch (sendErr) {
         console.error("❌ Failed to send KMS status message:", sendErr.message);
       }

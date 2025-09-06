@@ -68,7 +68,6 @@ async function checkNewMemberSweeps(client) {
 }
 
 // KMS status updater (countdown + signup count)
-let lastKmsUpdateEpochMin = null;
 async function updateKmsStatus(client) {
   try {
     const channelId = config.kms?.channelId || process.env.KMS_CHANNEL_ID || "1413820948536365190";
@@ -77,20 +76,7 @@ async function updateKmsStatus(client) {
 
     if (!channelId || !roleId) return; // Not configured
 
-    // Throttle to once every 5 minutes, except within 60 minutes of event (then every minute)
     const now = new Date();
-    const epochMin = Math.floor(now.getTime() / 60000);
-    let throttleMinutes = 5;
-    if (eventIso) {
-      const eventTime = new Date(eventIso).getTime();
-      if (!Number.isNaN(eventTime)) {
-        const minsToEvent = Math.floor((eventTime - now.getTime()) / 60000);
-        if (minsToEvent <= 60 && minsToEvent >= -120) {
-          throttleMinutes = 1;
-        }
-      }
-    }
-    if (lastKmsUpdateEpochMin !== null && (epochMin - lastKmsUpdateEpochMin) < throttleMinutes) return;
 
     const channel = client.channels.cache.get(channelId) || await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.guild) return;
@@ -117,10 +103,9 @@ async function updateKmsStatus(client) {
       const days = Math.floor(absMs / (24 * 3600 * 1000));
       const hours = Math.floor((absMs % (24 * 3600 * 1000)) / (3600 * 1000));
       const minutes = Math.floor((absMs % (3600 * 1000)) / (60 * 1000));
-      const seconds = Math.floor((absMs % (60 * 1000)) / 1000);
       const unixTs = Math.floor(eventDate.getTime() / 1000);
       const prefix = diffMs >= 0 ? "⏳ Countdown" : "✅ Event started";
-      const human = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      const human = `${days}d ${hours}t ${minutes}m`;
       countdownLine = `${prefix}: ${human} • <t:${unixTs}:F> (<t:${unixTs}:R>)`;
     }
 
@@ -155,8 +140,6 @@ async function updateKmsStatus(client) {
         console.error("❌ Failed to send KMS status message:", sendErr.message);
       }
     }
-
-    lastKmsUpdateEpochMin = epochMin;
   } catch (error) {
     console.error("❌ Error updating KMS status:", error);
   }

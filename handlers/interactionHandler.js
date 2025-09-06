@@ -172,6 +172,16 @@ async function handleInteractions(interaction) {
 
         const roleId = interaction.customId.replace("kms_toggle_role_", "");
         const member = await interaction.guild.members.fetch(interaction.user.id);
+
+        // Require Verified Member role
+        const VERIFIED_ROLE_ID = '1385216556166025347';
+        if (!member.roles.cache.has(VERIFIED_ROLE_ID)) {
+          await interaction.editReply(
+            "❌ Du skal være Verified Member for at tilmelde dig. Brug /set_zwiftid for at linke din Zwift ID og få rollen."
+          );
+          return;
+        }
+
         const hasRole = member.roles.cache.has(roleId);
 
         if (hasRole) {

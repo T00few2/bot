@@ -182,7 +182,28 @@ async function generateEventResultsImage(events) {
   const topMargin = 150;
   const leftMargin = 50;
   const width = 900;
-  const height = topMargin + (Object.values(events).length * 300); // Approximate height based on number of events
+  // Calculate dynamic height based on riders per event
+  const sortedEvents = Object.entries(events)
+    .sort(([, a], [, b]) => new Date(a.event_info.date) - new Date(b.event_info.date));
+
+  let height = topMargin;
+  for (let i = 0; i < sortedEvents.length; i++) {
+    const [, event] = sortedEvents[i];
+    const riderCount = Array.isArray(event.riders) ? event.riders.length : 0;
+    height += 40; // Event title
+    height += 40; // Event date
+    height += 30; // Column headers
+    height += riderCount * rowHeight; // Rider rows
+    if (i < sortedEvents.length - 1) {
+      height += 40; // Space between events
+    }
+  }
+
+  // Ensure a reasonable minimum height
+  if (height < topMargin + 300) {
+    height = topMargin + 300;
+  }
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -216,9 +237,7 @@ async function generateEventResultsImage(events) {
 
   let yOffset = topMargin;
 
-  // Sort events by date
-  const sortedEvents = Object.entries(events)
-    .sort(([, a], [, b]) => new Date(a.event_info.date) - new Date(b.event_info.date));
+  // Events already sorted above
 
   for (const [eventId, event] of sortedEvents) {
     // Event title

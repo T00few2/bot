@@ -42,14 +42,14 @@ function renderSignupEmbed(board, guild) {
   const signups = board.signups || { A: [], B: [], C: [], D: [] };
 
   const embed = new EmbedBuilder()
-    .setTitle("Holdtilmelding: A / B / C / D")
+    .setTitle("ZRL holdinteresser: A / B / C / D")
     .setDescription(
-      "Reager nedenfor for at tilmelde dig et nyt hold i din division.\n" +
+      "Reager nedenfor hvis du er interesseret i at køre for et ZRL hold i din division.\n" +
         `${LETTER_EMOJIS.D} = D • ${LETTER_EMOJIS.C} = C • ${LETTER_EMOJIS.B} = B • ${LETTER_EMOJIS.A} = A\n` +
-        "Fjern din reaktion for at afmelde dig."
+        "Fjern din reaktion hvis du ikke længere er interesseret."
     )
     .setColor(0x5865f2)
-    .setFooter({ text: guild?.name || "Team Signup" })
+    .setFooter({ text: guild?.name || "ZRL holdinteresser" })
     .setTimestamp();
 
   for (const div of divisions) {

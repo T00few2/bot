@@ -14,6 +14,8 @@ const {
   handleWhoAmI,
   handleTestWelcome,
   handleNewMembers,
+  handlePostSignupBoard,
+  handleRepostSignupBoard,
 } = require("./commandHandlers");
 const {
   handleSetupRoles,
@@ -488,6 +490,8 @@ async function handleInteractions(interaction) {
       "event_results": handleEventResults,
       "test_welcome": handleTestWelcome,
       "new_members": handleNewMembers,
+      "post_signup_board": handlePostSignupBoard,
+      "repost_signup_board": handleRepostSignupBoard,
       // Legacy role commands
       "setup_roles": handleSetupRoles,
       "add_selfrole": handleAddSelfRole,

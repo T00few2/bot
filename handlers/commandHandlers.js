@@ -10,6 +10,7 @@ const { EmbedBuilder } = require("discord.js");
 const config = require("../config/config");
 const { checkVerificationAfterZwiftLink } = require("./memberHandler");
 const { MessageFlags } = require("discord.js");
+const { postSignupBoard, repostSignupBoard } = require("../services/signupService");
 
 async function handleMyZwiftId(interaction) {
   const zwiftID = interaction.options.getString("zwiftid");
@@ -433,6 +434,44 @@ async function handleTestWelcome(interaction) {
   }
 }
 
+async function handlePostSignupBoard(interaction) {
+  try {
+    if (!interaction.member.permissions.has('Administrator')) {
+      await interaction.editReply({ content: "❌ This command is for administrators only." });
+      return;
+    }
+    const channel = interaction.options.getChannel("channel") || interaction.channel;
+    if (!channel || channel.type !== 0 && channel.type !== 5 && channel.type !== 15) { // GuildText, Announcement, Forum ignored
+      await interaction.editReply({ content: "❌ Please specify a text channel." });
+      return;
+    }
+    const { message } = await postSignupBoard(channel);
+    await interaction.editReply({ content: `✅ Signup board posted in <#${channel.id}> (message ${message.id}).` });
+  } catch (error) {
+    console.error("❌ post_signup_board Error:", error);
+    await interaction.editReply({ content: "⚠️ Error posting signup board: " + (error.message || "Unknown error") });
+  }
+}
+
+async function handleRepostSignupBoard(interaction) {
+  try {
+    if (!interaction.member.permissions.has('Administrator')) {
+      await interaction.editReply({ content: "❌ This command is for administrators only." });
+      return;
+    }
+    const channel = interaction.options.getChannel("channel") || interaction.channel;
+    if (!channel || channel.type !== 0 && channel.type !== 5 && channel.type !== 15) {
+      await interaction.editReply({ content: "❌ Please specify a text channel." });
+      return;
+    }
+    const { message } = await repostSignupBoard(channel);
+    await interaction.editReply({ content: `✅ Signup board reposted in <#${channel.id}> (message ${message.id}).` });
+  } catch (error) {
+    console.error("❌ repost_signup_board Error:", error);
+    await interaction.editReply({ content: "⚠️ Error reposting signup board: " + (error.message || "Unknown error") });
+  }
+}
+
 /**
  * /new_members
  * Mention members who joined within N days and currently have a specified role
@@ -503,4 +542,6 @@ module.exports = {
   handleWhoAmI,
   handleTestWelcome,
   handleNewMembers,
+  handlePostSignupBoard,
+  handleRepostSignupBoard,
 }; 

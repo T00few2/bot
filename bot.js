@@ -6,6 +6,7 @@ const { handleInteractions } = require("./handlers/interactionHandler");
 const { handleGuildMemberAdd, handleGuildMemberUpdate } = require("./handlers/memberHandler");
 const { startScheduler } = require("./services/scheduler");
 const approvalService = require("./services/approvalService");
+const { handleReactionAdd: handleSignupReactionAdd, handleReactionRemove: handleSignupReactionRemove } = require("./services/signupService");
 const { 
   handleMessageCreate, 
   handleMessageReactionAdd, 
@@ -59,6 +60,9 @@ client.on("messageReactionAdd", async (reaction, user) => {
       await reaction.fetch();
     }
 
+    // First, check for signup board reactions (A/B/C/D)
+    try { await handleSignupReactionAdd(reaction, user); } catch (e) { /* noop */ }
+
     // Check if it's an approval or rejection reaction
     if (reaction.emoji.name === "✅" || reaction.emoji.name === "❌") {
       const result = await approvalService.handleApprovalReaction(
@@ -85,6 +89,19 @@ client.on("messageReactionAdd", async (reaction, user) => {
     }
   } catch (error) {
     console.error("Error handling approval reaction:", error);
+  }
+});
+
+// Handle reaction removal for signup board
+client.on("messageReactionRemove", async (reaction, user) => {
+  if (user?.bot) return;
+  try {
+    if (reaction.partial) {
+      await reaction.fetch();
+    }
+    await handleSignupReactionRemove(reaction, user);
+  } catch (error) {
+    console.error("Error handling signup reaction remove:", error);
   }
 });
 

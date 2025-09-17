@@ -269,6 +269,29 @@ const commands = [
     .setName("disable_verification")
     .setDescription("Disable the auto-verification system (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  // Team signup board commands
+  new SlashCommandBuilder()
+    .setName("post_signup_board")
+    .setDescription("Post an A/B/C/D team signup board in a channel (admin only)")
+    .addChannelOption(option =>
+      option
+        .setName("channel")
+        .setDescription("Channel to post the signup board (defaults to current)")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("repost_signup_board")
+    .setDescription("Repost the latest A/B/C/D signup board for this channel (admin only)")
+    .addChannelOption(option =>
+      option
+        .setName("channel")
+        .setDescription("Channel to repost the signup board (defaults to current)")
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
     
   new SlashCommandBuilder()
     .setName("roles_panel")

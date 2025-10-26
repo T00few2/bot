@@ -14,6 +14,7 @@ const {
   handleInteractionCreate,
   forceSaveStats 
 } = require("./handlers/statsHandler");
+const { handleZwiftIdMessage, handleZwiftIdConfirmation } = require("./handlers/zwiftIdMessageHandler");
 
 // Setup keep-alive server
 setupKeepAliveServer();
@@ -107,6 +108,12 @@ client.on("messageReactionRemove", async (reaction, user) => {
 
 // Handle all interactions
 client.on("interactionCreate", (interaction) => {
+  // Handle Zwift ID confirmation buttons
+  if (interaction.isButton() && (interaction.customId.startsWith("confirm_zwiftid_") || interaction.customId.startsWith("cancel_zwiftid_"))) {
+    handleZwiftIdConfirmation(interaction);
+    return;
+  }
+  
   handleInteractions(interaction);
   handleInteractionCreate(interaction); // Also track for stats
 });
@@ -118,7 +125,10 @@ client.on("guildMemberAdd", handleGuildMemberAdd);
 client.on("guildMemberUpdate", handleGuildMemberUpdate);
 
 // Handle activity for stats collection
-client.on("messageCreate", handleMessageCreate);
+client.on("messageCreate", (message) => {
+  handleMessageCreate(message);
+  handleZwiftIdMessage(message); // Also check for Zwift ID linking
+});
 client.on("voiceStateUpdate", handleVoiceStateUpdate);
 
 // Bot ready event

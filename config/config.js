@@ -26,4 +26,7 @@ module.exports = {
     baseUrl: process.env.CONTENT_API_BASE_URL, // Your Google Cloud Function URL
     apiKey: process.env.CONTENT_API_KEY,       // API key for authentication
   },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,        // OpenAI API key for AI chat features
+  },
 }; 

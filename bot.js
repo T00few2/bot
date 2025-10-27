@@ -15,6 +15,7 @@ const {
   forceSaveStats 
 } = require("./handlers/statsHandler");
 const { handleZwiftIdMessage, handleZwiftIdConfirmation } = require("./handlers/zwiftIdMessageHandler");
+const { handleAIChatMessage } = require("./handlers/aiChatHandler");
 
 // Setup keep-alive server
 setupKeepAliveServer();
@@ -125,9 +126,10 @@ client.on("guildMemberAdd", handleGuildMemberAdd);
 client.on("guildMemberUpdate", handleGuildMemberUpdate);
 
 // Handle activity for stats collection
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
   handleMessageCreate(message);
   handleZwiftIdMessage(message); // Also check for Zwift ID linking
+  await handleAIChatMessage(message, client); // Also check for AI chat requests
 });
 client.on("voiceStateUpdate", handleVoiceStateUpdate);
 

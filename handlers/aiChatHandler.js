@@ -452,9 +452,10 @@ async function handleAIChatMessage(message, client) {
     // Show typing indicator
     await message.channel.sendTyping();
     
-    // Clean the message (remove bot mention)
+    // Clean the message (remove only the bot mention, preserve user mentions)
+    const botMentionPattern = new RegExp(`<@!?${client.user.id}>`, 'g');
     const cleanedMessage = message.content
-      .replace(/<@!?\d+>/g, '') // Remove all mentions for processing
+      .replace(botMentionPattern, '') // Remove only bot mention
       .trim();
     
     if (!cleanedMessage) {

@@ -164,7 +164,9 @@ const functionDefinitions = [
  * Create a synthetic interaction object to call existing command handlers
  */
 function createSyntheticInteraction(message, options = {}) {
-  return {
+  let replyMessage = null; // Store the initial reply message
+  
+  const synthetic = {
     // Basic properties
     user: message.author,
     member: message.member,
@@ -185,18 +187,33 @@ function createSyntheticInteraction(message, options = {}) {
     
     // Reply methods
     reply: async (content) => {
-      return await message.reply(content);
+      synthetic.replied = true;
+      replyMessage = await message.reply(content);
+      return replyMessage;
     },
     
     editReply: async (content) => {
-      // For synthetic interactions, just send a new message
-      return await message.reply(content);
+      // If we already have a reply message, edit it
+      if (replyMessage) {
+        return await replyMessage.edit(content);
+      }
+      // Otherwise, create the initial reply
+      synthetic.replied = true;
+      replyMessage = await message.reply(content);
+      return replyMessage;
     },
     
     followUp: async (content) => {
-      return await message.reply(content);
+      return await message.channel.send(content);
+    },
+    
+    // For publish button functionality
+    get message() {
+      return replyMessage;
     }
   };
+  
+  return synthetic;
 }
 
 /**

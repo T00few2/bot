@@ -177,6 +177,7 @@ function createSyntheticInteraction(message, options = {}) {
     // State flags
     replied: false,
     deferred: false,
+    isAIChatInteraction: true, // Flag to indicate this is from AI chat, not slash command
     
     // Options getter
     options: {
@@ -188,23 +189,52 @@ function createSyntheticInteraction(message, options = {}) {
     // Reply methods
     reply: async (content) => {
       synthetic.replied = true;
-      replyMessage = await message.reply(content);
+      // Handle different content types (string, object with embeds, etc.)
+      if (typeof content === 'string') {
+        replyMessage = await message.reply(content);
+      } else {
+        // For AI chat, skip ephemeral and send directly to channel
+        // Remove "publish" button if present
+        const cleanContent = { ...content };
+        if (cleanContent.components) {
+          cleanContent.components = [];
+        }
+        replyMessage = await message.reply(cleanContent);
+      }
       return replyMessage;
     },
     
     editReply: async (content) => {
       // If we already have a reply message, edit it
       if (replyMessage) {
-        return await replyMessage.edit(content);
+        // For AI chat, skip ephemeral and send directly
+        const cleanContent = typeof content === 'string' ? content : { ...content };
+        if (typeof cleanContent === 'object' && cleanContent.components) {
+          cleanContent.components = [];
+        }
+        return await replyMessage.edit(cleanContent);
       }
       // Otherwise, create the initial reply
       synthetic.replied = true;
-      replyMessage = await message.reply(content);
+      if (typeof content === 'string') {
+        replyMessage = await message.reply(content);
+      } else {
+        const cleanContent = { ...content };
+        if (cleanContent.components) {
+          cleanContent.components = [];
+        }
+        replyMessage = await message.reply(cleanContent);
+      }
       return replyMessage;
     },
     
     followUp: async (content) => {
-      return await message.channel.send(content);
+      // Remove publish buttons from follow-ups too
+      const cleanContent = typeof content === 'string' ? content : { ...content };
+      if (typeof cleanContent === 'object' && cleanContent.components) {
+        cleanContent.components = [];
+      }
+      return await message.channel.send(cleanContent);
     },
     
     // For publish button functionality

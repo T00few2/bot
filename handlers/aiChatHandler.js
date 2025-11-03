@@ -597,8 +597,8 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
           const followUpMessages = [
             ...conversation,
             {
-              role: "system",
-              content: "Using the rider stats data returned by the previous function, respond to the user with a concise (1-3 sentences) natural-language commentary highlighting notable strengths, weaknesses, and context. Reference only the most relevant metrics instead of listing everything."}
+              role: "user",
+              content: "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved, focusing on the most notable strengths, weaknesses or trends. Avoid listing every metric verbatim."}
           ];
 
           const followUp = await openai.chat.completions.create({

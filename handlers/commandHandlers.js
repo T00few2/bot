@@ -171,6 +171,58 @@ async function handleRiderStats(interaction) {
       return { success: false, message };
     }
 
+    const toNumber = (value) => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const computeWkg = (watts, weight) => {
+      const wattsNum = toNumber(watts);
+      const weightNum = toNumber(weight);
+      if (wattsNum === null || weightNum === null || weightNum === 0) return null;
+      return wattsNum / weightNum;
+    };
+
+    const riderSummary = {
+      name: rider?.name ?? null,
+      zwiftId: rider?.riderId ?? null,
+      paceGroup: rider?.zpCategory ?? null,
+      phenotype: rider?.phenotype?.value ?? null,
+      velo: {
+        category: rider?.race?.current?.mixed?.category ?? null,
+        rating: toNumber(rider?.race?.current?.rating)
+      },
+      ftp: {
+        watts: toNumber(rider?.zpFTP),
+        wkg: computeWkg(rider?.zpFTP, rider?.weight)
+      },
+      power: {
+        w30: {
+          watts: toNumber(rider?.power?.w30),
+          wkg: toNumber(rider?.power?.wkg30)
+        },
+        w60: {
+          watts: toNumber(rider?.power?.w60),
+          wkg: toNumber(rider?.power?.wkg60)
+        },
+        w300: {
+          watts: toNumber(rider?.power?.w300),
+          wkg: toNumber(rider?.power?.wkg300)
+        },
+        w1200: {
+          watts: toNumber(rider?.power?.w1200),
+          wkg: toNumber(rider?.power?.wkg1200)
+        }
+      },
+      race: {
+        finishes: toNumber(rider?.race?.finishes),
+        wins: toNumber(rider?.race?.wins),
+        podiums: toNumber(rider?.race?.podiums),
+        dnfs: toNumber(rider?.race?.dnfs)
+      }
+    };
+
     const imageBuffer = await generateSingleRiderStatsImage(rider);
     const graphBuffer = await generatePowerLineGraph(rider);
     const graphBuffer2 = await generatePowerLineGraph2(rider);
@@ -185,7 +237,10 @@ async function handleRiderStats(interaction) {
     await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
     return {
       success: true,
-      rider
+      rider: riderSummary,
+      metadata: {
+        zwiftPowerUrl: `https://www.zwiftpower.com/profile.php?z=${rider.riderId}`
+      }
     };
   } catch (error) {
     console.error("❌ rider_stats Error:", error);

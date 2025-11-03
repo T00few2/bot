@@ -671,8 +671,8 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
 
         try {
           const prompt = fnName === "team_stats"
-            ? "Provide a friendly 1-3 sentence commentary comparing these riders, highlighting who stands out for FTP/endurance vs. short power, and how the lineup might complement each other. Avoid listing every metric verbatim."
-            : "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved, focusing on the most notable strengths, weaknesses or trends. Avoid listing every metric verbatim.";
+            ? "Provide a friendly 1-3 sentence commentary comparing these riders. You like to use lyrics from songs to describe the riders and compare them to celebrities and known riders. You tend to exaggerate differences between riders to make the commentary more engaging and funny."
+            : "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved. You like to use lyrics from songs to describe the rider and compare them to celebrities and known riders. You tend to exaggerate the rider's stats to make the commentary more engaging and funny.";
 
           const followUpMessages = [
             ...conversation,

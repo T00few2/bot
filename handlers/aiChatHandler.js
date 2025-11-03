@@ -46,15 +46,15 @@ function buildRiderComment(rider) {
   const parts = [];
 
   if (ftpWkg && ftpWkg > 4.0) {
-    parts.push(`${name} has a strong FTP (${ftpWkg.toFixed(2)} W/kg)`);
+    parts.push(`${name} is packing a serious diesel engine`);
   } else if (ftpWkg && ftpWkg > 3.2) {
-    parts.push(`${name}'s FTP (${ftpWkg.toFixed(2)} W/kg) is solid`);
+    parts.push(`${name} shows solid endurance legs`);
   }
 
   if (w5 && (!w20 || w5 - w20 > 0.5)) {
-    parts.push('shorter burst power looks comparatively stronger');
+    parts.push('short‑burst power pops');
   } else if (w20 && (!w5 || w20 - w5 > 0.2)) {
-    parts.push('sustained power stands out');
+    parts.push('all‑day power stands out');
   }
 
   if (phenotype) {
@@ -66,7 +66,7 @@ function buildRiderComment(rider) {
   }
 
   if (parts.length === 0) {
-    return `${name} shows a balanced profile across short and sustained power.`;
+    return `${name} looks balanced with both snap and staying power.`;
   }
 
   return parts.join(' • ') + '.';
@@ -89,15 +89,15 @@ function buildTeamComment(team) {
   const parts = [];
   if (ftp.length > 0) {
     const top = ftp[0];
-    parts.push(`${top.r.name} leads on FTP at ${top.val.toFixed(2)} W/kg`);
+    parts.push(`${top.r.name} is the diesel up the climbs`);
   }
   if (w5.length > 0) {
     const top = w5[0];
-    parts.push(`${top.r.name} shows standout 5‑minute power`);
+    parts.push(`${top.r.name} brings the mid‑range punch`);
   }
   if (w20.length > 0) {
     const top = w20[0];
-    parts.push(`${top.r.name} has the strongest 20‑minute effort`);
+    parts.push(`${top.r.name} holds the line on long efforts`);
   }
 
   if (parts.length === 0) {
@@ -671,8 +671,8 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
 
         try {
           const prompt = fnName === "team_stats"
-            ? "Provide a friendly 1-3 sentence commentary comparing these riders. You like to use lyrics from songs to describe the riders and compare them to celebrities and known riders. You tend to exaggerate differences between riders to make the commentary more engaging and funny."
-            : "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved. You like to use lyrics from songs to describe the rider and compare them to celebrities and known riders. You tend to exaggerate the rider's stats to make the commentary more engaging and funny.";
+            ? "Give a playful 1-3 sentence commentary comparing these riders. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists."
+            : "Give a playful 1-3 sentence commentary about the rider. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists.";
 
           const followUpMessages = [
             ...conversation,
@@ -682,8 +682,7 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
           const followUp = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: followUpMessages,
-            function_call: "none",
-            temperature: 0.7,
+            temperature: 1.0,
             max_tokens: 300
           });
 

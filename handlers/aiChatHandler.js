@@ -282,7 +282,7 @@ async function executeCommand(functionCall, message) {
   } catch (error) {
     console.error("Error parsing function arguments:", error);
     await message.reply("⚠️ I had trouble understanding the command parameters. Please try rephrasing.");
-    return;
+    return { success: false, message: "Invalid function arguments" };
   }
   
   console.log(`🤖 Executing command: ${name}`, args);
@@ -303,14 +303,14 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.discord_username, message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return;
+            return { success: false, message: `Discord user ${args.discord_username} not found` };
           }
           options.users.discorduser = user;
         }
         
         const interaction = createSyntheticInteraction(message, options);
-        await handleRiderStats(interaction);
-        break;
+        const result = await handleRiderStats(interaction);
+        return result ?? { success: true };
       }
       
       case "team_stats": {
@@ -320,7 +320,7 @@ async function executeCommand(functionCall, message) {
         
         if (!args.riders || !Array.isArray(args.riders)) {
           await message.reply("❌ Please specify 2-8 riders to compare.");
-          return;
+          return { success: false, message: "Invalid riders array" };
         }
         
         // Resolve all rider usernames to User objects
@@ -328,20 +328,20 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.riders[i], message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.riders[i]}`);
-            return;
+            return { success: false, message: `Discord user ${args.riders[i]} not found` };
           }
           options.users[`rider${i + 1}`] = user;
         }
         
         const interaction = createSyntheticInteraction(message, options);
         await handleTeamStats(interaction);
-        break;
+        return { success: true };
       }
       
       case "whoami": {
         const interaction = createSyntheticInteraction(message);
         await handleWhoAmI(interaction);
-        break;
+        return { success: true };
       }
       
       case "get_zwiftid": {
@@ -353,14 +353,14 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.discord_username, message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return;
+            return { success: false, message: `Discord user ${args.discord_username} not found` };
           }
           options.users.discorduser = user;
         }
         
         const interaction = createSyntheticInteraction(message, options);
         await handleGetZwiftId(interaction);
-        break;
+        return { success: true };
       }
       
       case "browse_riders": {
@@ -372,7 +372,7 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleBrowseRiders(interaction);
-        break;
+        return { success: true };
       }
       
       case "event_results": {
@@ -384,7 +384,7 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleEventResults(interaction);
-        break;
+        return { success: true };
       }
       
       case "my_zwiftid": {
@@ -402,14 +402,14 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleMyZwiftId(interaction);
-        break;
+        return { success: true };
       }
       
       case "set_zwiftid": {
         // Check permissions
         if (!message.member.permissions.has('ManageMessages')) {
           await message.reply("❌ You need 'Manage Messages' permission to set Zwift IDs for other users.");
-          return;
+          return { success: false, message: "Missing Manage Messages permission" };
         }
         
         const options = {
@@ -421,7 +421,7 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.discord_username, message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return;
+            return { success: false, message: `Discord user ${args.discord_username} not found` };
           }
           options.users.discorduser = user;
         }
@@ -436,15 +436,17 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleSetZwiftId(interaction);
-        break;
+        return { success: true };
       }
       
       default:
         await message.reply(`❌ Unknown command: ${name}`);
+        return { success: false, message: `Unknown command: ${name}` };
     }
   } catch (error) {
     console.error(`Error executing command ${name}:`, error);
     await message.reply("⚠️ An error occurred while executing the command. Please try again.");
+    return { success: false, message: "Unhandled error executing command", error: error?.message };
   }
 }
 
@@ -492,8 +494,8 @@ async function handleAIChatMessage(message, client) {
   // Ignore bot messages
   if (message.author.bot) return;
   
-  // Only respond if bot is mentioned
-  if (!message.mentions.has(client.user.id)) return;
+  // Only respond when the bot is directly mentioned (exclude @everyone/@here)
+  if (!message.mentions.users.has(client.user.id)) return;
   
   try {
     // Show typing indicator
@@ -568,16 +570,52 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
         content: responseMessage.content || "",
         function_call: responseMessage.function_call
       });
-      
-      // Execute the command
-      await executeCommand(responseMessage.function_call, message);
-      
-      // Add a note about function execution
+
+      // Execute the command and capture result
+      const commandResult = await executeCommand(responseMessage.function_call, message);
+      const functionPayload = commandResult ?? { success: true };
+
+      // Pass command result back into the conversation for model awareness
       conversation.push({
         role: "function",
         name: responseMessage.function_call.name,
-        content: "Function executed successfully"
+        content: JSON.stringify(functionPayload)
       });
+
+      // Optionally get a follow-up response using the function output
+      const shouldGenerateFollowUp = functionPayload?.success && responseMessage.function_call.name === "rider_stats";
+
+      if (shouldGenerateFollowUp) {
+        if (conversation.length > MAX_CONVERSATION_LENGTH) {
+          conversation = [
+            conversation[0],
+            ...conversation.slice(-MAX_CONVERSATION_LENGTH)
+          ];
+        }
+
+        try {
+          const followUp = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: conversation,
+            function_call: "none",
+            temperature: 0.7,
+            max_tokens: 300
+          });
+
+          const followUpMessage = followUp.choices[0]?.message;
+
+          if (followUpMessage?.content) {
+            conversation.push({
+              role: "assistant",
+              content: followUpMessage.content
+            });
+
+            await message.reply(followUpMessage.content);
+          }
+        } catch (followUpError) {
+          console.error("Error generating follow-up AI response:", followUpError);
+        }
+      }
     } else {
       // ChatGPT responded conversationally (no function call)
       conversation.push({
@@ -588,6 +626,14 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
       await message.reply(responseMessage.content);
     }
     
+    // Trim conversation if it has grown too long after processing
+    if (conversation.length > MAX_CONVERSATION_LENGTH) {
+      conversation = [
+        conversation[0],
+        ...conversation.slice(-MAX_CONVERSATION_LENGTH)
+      ];
+    }
+
     // Save updated conversation
     userConversations.set(userId, conversation);
     

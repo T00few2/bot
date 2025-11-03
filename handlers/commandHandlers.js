@@ -150,22 +150,25 @@ async function handleRiderStats(interaction) {
     if (!zwiftID && discordUser) {
       zwiftID = await getUserZwiftId(discordUser.id);
       if (!zwiftID) {
-        await ephemeralReplyWithPublish(interaction, `❌ **${discordUser.username}** has not linked their ZwiftID yet!`);
-        return;
+        const message = `❌ **${discordUser.username}** has not linked their ZwiftID yet!`;
+        await ephemeralReplyWithPublish(interaction, message);
+        return { success: false, message };
       }
     }
 
     if (!zwiftID) {
-      await ephemeralReplyWithPublish(interaction, "❌ Provide a ZwiftID or mention a user who has linked one.");
-      return;
+      const message = "❌ Provide a ZwiftID or mention a user who has linked one.";
+      await ephemeralReplyWithPublish(interaction, message);
+      return { success: false, message };
     }
 
     const response = await axios.get(`https://www.dzrracingseries.com/api/zr/rider/${zwiftID}`);
     const rider = response.data;
 
     if (!rider || !rider.name) {
-      await ephemeralReplyWithPublish(interaction, `❌ No data found for ZwiftID **${zwiftID}**.`);
-      return;
+      const message = `❌ No data found for ZwiftID **${zwiftID}**.`;
+      await ephemeralReplyWithPublish(interaction, message);
+      return { success: false, message };
     }
 
     const imageBuffer = await generateSingleRiderStatsImage(rider);
@@ -180,9 +183,18 @@ async function handleRiderStats(interaction) {
     const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n`;
 
     await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
+    return {
+      success: true,
+      rider
+    };
   } catch (error) {
     console.error("❌ rider_stats Error:", error);
     await interaction.editReply({ content: "⚠️ Error fetching or generating rider stats." });
+    return {
+      success: false,
+      message: "Error fetching or generating rider stats.",
+      error: error?.message
+    };
   }
 }
 

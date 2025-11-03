@@ -30,6 +30,47 @@ const conversationTimers = new Map();
 // Configuration
 const CONVERSATION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const MAX_CONVERSATION_LENGTH = 20; // Last 20 messages (10 exchanges)
+/**
+ * Build a short, human-friendly rider commentary from summarized stats
+ */
+function buildRiderComment(rider) {
+  if (!rider || typeof rider !== 'object') return null;
+
+  const name = rider.name || 'This rider';
+  const ftpWkg = rider?.ftp?.wkg;
+  const w5 = rider?.power?.w300?.wkg;   // 5m
+  const w20 = rider?.power?.w1200?.wkg; // 20m
+  const phenotype = rider?.phenotype || rider?.phenotype?.value;
+  const veloCat = rider?.velo?.category;
+
+  const parts = [];
+
+  if (ftpWkg && ftpWkg > 4.0) {
+    parts.push(`${name} has a strong FTP (${ftpWkg.toFixed(2)} W/kg)`);
+  } else if (ftpWkg && ftpWkg > 3.2) {
+    parts.push(`${name}'s FTP (${ftpWkg.toFixed(2)} W/kg) is solid`);
+  }
+
+  if (w5 && (!w20 || w5 - w20 > 0.5)) {
+    parts.push('shorter burst power looks comparatively stronger');
+  } else if (w20 && (!w5 || w20 - w5 > 0.2)) {
+    parts.push('sustained power stands out');
+  }
+
+  if (phenotype) {
+    parts.push(`phenotype: ${phenotype}`);
+  }
+
+  if (veloCat) {
+    parts.push(`vELO category: ${veloCat}`);
+  }
+
+  if (parts.length === 0) {
+    return `${name} shows a balanced profile across short and sustained power.`;
+  }
+
+  return parts.join(' • ') + '.';
+}
 
 /**
  * OpenAI Function Definitions - Maps to your existing slash commands
@@ -611,16 +652,30 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
 
           const followUpMessage = followUp.choices[0]?.message;
 
-          if (followUpMessage?.content) {
+          if (followUpMessage?.content && followUpMessage.content.trim().length > 0) {
             conversation.push({
               role: "assistant",
               content: followUpMessage.content
             });
 
             await message.reply(followUpMessage.content);
+          } else if (functionPayload?.rider) {
+            const fallback = buildRiderComment(functionPayload.rider);
+            if (fallback) {
+              conversation.push({ role: "assistant", content: fallback });
+              await message.reply(fallback);
+            }
           }
         } catch (followUpError) {
           console.error("Error generating follow-up AI response:", followUpError);
+          // Fallback to a minimal heuristic-based commentary
+          if (functionPayload?.rider) {
+            const fallback = buildRiderComment(functionPayload.rider);
+            if (fallback) {
+              conversation.push({ role: "assistant", content: fallback });
+              await message.reply(fallback);
+            }
+          }
         }
       }
     } else {

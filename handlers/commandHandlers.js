@@ -171,6 +171,57 @@ async function handleRiderStats(interaction) {
       return { success: false, message };
     }
 
+    const formatPower = (watts, wkg) => {
+      const wattsNumber = typeof watts === "number" ? watts : Number(watts);
+      const wkgNumber = typeof wkg === "number" ? wkg : Number(wkg);
+
+      if (Number.isFinite(wattsNumber) && Number.isFinite(wkgNumber)) {
+        return `${Math.round(wattsNumber)} W (${wkgNumber.toFixed(2)} W/kg)`;
+      }
+      if (Number.isFinite(wattsNumber)) {
+        return `${Math.round(wattsNumber)} W`;
+      }
+      return "N/A";
+    };
+
+    const resolveVeloCategory = () => {
+      const mixedCategory = rider?.race?.current?.mixed?.category;
+      if (!mixedCategory) return "N/A";
+
+      const ratingRaw = rider?.race?.current?.rating;
+      const ratingNumber = typeof ratingRaw === "number" ? ratingRaw : Number(ratingRaw);
+      if (Number.isFinite(ratingNumber)) {
+        return `${mixedCategory} (${Math.round(ratingNumber)})`;
+      }
+      return mixedCategory;
+    };
+
+    const resolveFTP = () => {
+      const ftpRaw = rider?.zpFTP;
+      const weightRaw = rider?.weight;
+      const ftpNumber = typeof ftpRaw === "number" ? ftpRaw : Number(ftpRaw);
+      const weightNumber = typeof weightRaw === "number" ? weightRaw : Number(weightRaw);
+
+      if (Number.isFinite(ftpNumber) && Number.isFinite(weightNumber) && weightNumber !== 0) {
+        return `${Math.round(ftpNumber)} W (${(ftpNumber / weightNumber).toFixed(2)} W/kg)`;
+      }
+      if (Number.isFinite(ftpNumber)) {
+        return `${Math.round(ftpNumber)} W`;
+      }
+      return "N/A";
+    };
+
+    const veloCategory = resolveVeloCategory();
+    const ftpString = resolveFTP();
+
+    const summaryLines = [
+      `**${rider?.name ?? "Unknown Rider"}**`,
+      `Pace Group: ${rider?.zpCategory ?? "N/A"} • vELO: ${veloCategory} • Phenotype: ${rider?.phenotype?.value ?? "N/A"}`,
+      `FTP: ${ftpString}`,
+      `Power ➜ 30s: ${formatPower(rider?.power?.w30, rider?.power?.wkg30)}, 1m: ${formatPower(rider?.power?.w60, rider?.power?.wkg60)}, 5m: ${formatPower(rider?.power?.w300, rider?.power?.wkg300)}, 20m: ${formatPower(rider?.power?.w1200, rider?.power?.wkg1200)}`,
+      `Results ➜ Finishes: ${rider?.race?.finishes ?? "N/A"}, 😁 Wins: ${rider?.race?.wins ?? "N/A"}, ☺️ Podiums: ${rider?.race?.podiums ?? "N/A"}, 😖 DNFs: ${rider?.race?.dnfs ?? "N/A"}`
+    ];
+
     const imageBuffer = await generateSingleRiderStatsImage(rider);
     const graphBuffer = await generatePowerLineGraph(rider);
     const graphBuffer2 = await generatePowerLineGraph2(rider);
@@ -180,7 +231,7 @@ async function handleRiderStats(interaction) {
     const attachment3 = new AttachmentBuilder(graphBuffer2, { name: "power_graph2.png" });
 
     const zwiftPowerLink = `[${rider.name}](<https://www.zwiftpower.com/profile.php?z=${rider.riderId}>)`;
-    const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n`;
+    const content = `ZwiftPower Profile: ${zwiftPowerLink}\n\n${summaryLines.join("\n")}`;
 
     await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
     return {

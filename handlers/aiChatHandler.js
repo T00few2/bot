@@ -594,9 +594,16 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
         }
 
         try {
+          const followUpMessages = [
+            ...conversation,
+            {
+              role: "system",
+              content: "Using the rider stats data returned by the previous function, respond to the user with a concise (1-3 sentences) natural-language commentary highlighting notable strengths, weaknesses, and context. Reference only the most relevant metrics instead of listing everything."}
+          ];
+
           const followUp = await openai.chat.completions.create({
             model: "gpt-4o-mini",
-            messages: conversation,
+            messages: followUpMessages,
             function_call: "none",
             temperature: 0.7,
             max_tokens: 300

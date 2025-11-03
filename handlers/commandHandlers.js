@@ -296,6 +296,47 @@ async function handleTeamStats(interaction) {
       .map(r => `[${r.name}](<https://www.zwiftpower.com/profile.php?z=${r.riderId}>)`)
       .join(" | ");
 
+    // Build structured team summary for AI commentary
+    const toNumber = (value) => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const computeWkg = (watts, weight) => {
+      const wattsNum = toNumber(watts);
+      const weightNum = toNumber(weight);
+      if (wattsNum === null || weightNum === null || weightNum === 0) return null;
+      return wattsNum / weightNum;
+    };
+
+    const teamSummary = ridersFound.map(r => ({
+      name: r?.name ?? null,
+      zwiftId: r?.riderId ?? null,
+      paceGroup: r?.zpCategory ?? null,
+      phenotype: r?.phenotype?.value ?? null,
+      velo: {
+        category: r?.race?.current?.mixed?.category ?? null,
+        rating: toNumber(r?.race?.current?.rating)
+      },
+      ftp: {
+        watts: toNumber(r?.zpFTP),
+        wkg: computeWkg(r?.zpFTP, r?.weight)
+      },
+      power: {
+        w30: { watts: toNumber(r?.power?.w30), wkg: toNumber(r?.power?.wkg30) },
+        w60: { watts: toNumber(r?.power?.w60), wkg: toNumber(r?.power?.wkg60) },
+        w300: { watts: toNumber(r?.power?.w300), wkg: toNumber(r?.power?.wkg300) },
+        w1200: { watts: toNumber(r?.power?.w1200), wkg: toNumber(r?.power?.wkg1200) }
+      },
+      race: {
+        finishes: toNumber(r?.race?.finishes),
+        wins: toNumber(r?.race?.wins),
+        podiums: toNumber(r?.race?.podiums),
+        dnfs: toNumber(r?.race?.dnfs)
+      }
+    }));
+
     const imageBuffer = await generateTeamStatsImage(ridersFound);
     const graphBuffer = await generatePowerLineGraph(ridersFound);
     const graphBuffer2 = await generatePowerLineGraph2(ridersFound);
@@ -306,9 +347,14 @@ async function handleTeamStats(interaction) {
 
     const content = `ZwiftPower Profiles: ${zPLinks}\n\n`;
     await ephemeralReplyWithPublish(interaction, content, [attachment1, attachment2, attachment3]);
+    return {
+      success: true,
+      team: teamSummary
+    };
   } catch (error) {
     console.error("❌ team_stats Error:", error);
     await interaction.editReply({ content: "⚠️ Error generating team stats comparison." });
+    return { success: false, message: "Error generating team stats comparison.", error: error?.message };
   }
 }
 

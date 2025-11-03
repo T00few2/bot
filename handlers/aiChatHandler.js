@@ -73,6 +73,40 @@ function buildRiderComment(rider) {
 }
 
 /**
+ * Build a short, human-friendly team commentary from summarized team stats
+ */
+function buildTeamComment(team) {
+  if (!Array.isArray(team) || team.length === 0) return null;
+
+  const by = (selector) => team
+    .map(r => ({ r, val: selector(r) }))
+    .filter(x => typeof x.val === 'number' && Number.isFinite(x.val));
+
+  const ftp = by(r => r?.ftp?.wkg).sort((a,b) => b.val - a.val);
+  const w5 = by(r => r?.power?.w300?.wkg).sort((a,b) => b.val - a.val);
+  const w20 = by(r => r?.power?.w1200?.wkg).sort((a,b) => b.val - a.val);
+
+  const parts = [];
+  if (ftp.length > 0) {
+    const top = ftp[0];
+    parts.push(`${top.r.name} leads on FTP at ${top.val.toFixed(2)} W/kg`);
+  }
+  if (w5.length > 0) {
+    const top = w5[0];
+    parts.push(`${top.r.name} shows standout 5‑minute power`);
+  }
+  if (w20.length > 0) {
+    const top = w20[0];
+    parts.push(`${top.r.name} has the strongest 20‑minute effort`);
+  }
+
+  if (parts.length === 0) {
+    return `This lineup looks balanced across short and sustained power.`;
+  }
+  return parts.slice(0, 2).join(' • ') + '.';
+}
+
+/**
  * OpenAI Function Definitions - Maps to your existing slash commands
  */
 const functionDefinitions = [
@@ -375,8 +409,8 @@ async function executeCommand(functionCall, message) {
         }
         
         const interaction = createSyntheticInteraction(message, options);
-        await handleTeamStats(interaction);
-        return { success: true };
+        const result = await handleTeamStats(interaction);
+        return result ?? { success: true };
       }
       
       case "whoami": {
@@ -624,7 +658,8 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
       });
 
       // Optionally get a follow-up response using the function output
-      const shouldGenerateFollowUp = functionPayload?.success && responseMessage.function_call.name === "rider_stats";
+      const fnName = responseMessage.function_call.name;
+      const shouldGenerateFollowUp = functionPayload?.success && (fnName === "rider_stats" || fnName === "team_stats");
 
       if (shouldGenerateFollowUp) {
         if (conversation.length > MAX_CONVERSATION_LENGTH) {
@@ -635,11 +670,13 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
         }
 
         try {
+          const prompt = fnName === "team_stats"
+            ? "Provide a friendly 1-3 sentence commentary comparing these riders, highlighting who stands out for FTP/endurance vs. short power, and how the lineup might complement each other. Avoid listing every metric verbatim."
+            : "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved, focusing on the most notable strengths, weaknesses or trends. Avoid listing every metric verbatim.";
+
           const followUpMessages = [
             ...conversation,
-            {
-              role: "user",
-              content: "Provide a friendly 1-3 sentence commentary about the rider stats you just retrieved, focusing on the most notable strengths, weaknesses or trends. Avoid listing every metric verbatim."}
+            { role: "user", content: prompt }
           ];
 
           const followUp = await openai.chat.completions.create({
@@ -659,8 +696,14 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
             });
 
             await message.reply(followUpMessage.content);
-          } else if (functionPayload?.rider) {
+          } else if (fnName === "rider_stats" && functionPayload?.rider) {
             const fallback = buildRiderComment(functionPayload.rider);
+            if (fallback) {
+              conversation.push({ role: "assistant", content: fallback });
+              await message.reply(fallback);
+            }
+          } else if (fnName === "team_stats" && Array.isArray(functionPayload?.team)) {
+            const fallback = buildTeamComment(functionPayload.team);
             if (fallback) {
               conversation.push({ role: "assistant", content: fallback });
               await message.reply(fallback);
@@ -669,8 +712,14 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
         } catch (followUpError) {
           console.error("Error generating follow-up AI response:", followUpError);
           // Fallback to a minimal heuristic-based commentary
-          if (functionPayload?.rider) {
+          if (fnName === "rider_stats" && functionPayload?.rider) {
             const fallback = buildRiderComment(functionPayload.rider);
+            if (fallback) {
+              conversation.push({ role: "assistant", content: fallback });
+              await message.reply(fallback);
+            }
+          } else if (fnName === "team_stats" && Array.isArray(functionPayload?.team)) {
+            const fallback = buildTeamComment(functionPayload.team);
             if (fallback) {
               conversation.push({ role: "assistant", content: fallback });
               await message.reply(fallback);

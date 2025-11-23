@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 const { ChannelType } = require("discord.js");
 const config = require("../config/config");
-const { getAllBotKnowledge } = require("../services/firebase");
+const { getAllBotKnowledge, getUserZwiftId } = require("../services/firebase");
 const { 
   handleRiderStats, 
   handleTeamStats, 
@@ -636,12 +636,33 @@ async function handleAIChatMessage(message, client) {
     const cleanedMessage = message.content
       .replace(botMentionPattern, '') // Remove only bot mention
       .trim();
-    
+
     if (!cleanedMessage) {
       await message.reply("👋 Hello! I can help you with rider stats, team comparisons, and more. Just ask me something like:\n• Show me stats for @Chris\n• Compare @John, @Mike, and @Sarah\n• What's my Zwift ID?");
       return;
     }
-    
+
+    // Shortcut: "mine stats" → use caller's linked ZwiftID directly
+    const normalized = cleanedMessage.toLowerCase().replace(/[!?\.]+$/g, '').trim();
+    if (normalized === "mine stats") {
+      const zwiftId = await getUserZwiftId(message.author.id);
+      if (!zwiftId) {
+        await message.reply("❌ Du har endnu ikke linket et ZwiftID. Brug `/my_zwiftid` eller send dit ZwiftID i den dedikerede kanal, så hjælper jeg dig videre.");
+        return;
+      }
+
+      try {
+        const interaction = createSyntheticInteraction(message, {
+          strings: { zwiftid: String(zwiftId) }
+        });
+        await handleRiderStats(interaction);
+      } catch (err) {
+        console.error("Error handling 'mine stats' shortcut:", err);
+        await message.reply("⚠️ Der opstod en fejl, da jeg forsøgte at hente dine stats. Prøv igen lidt senere eller brug `/rider_stats` med dit ZwiftID.");
+      }
+      return;
+    }
+
     const userId = message.author.id;
     
     // Get or create conversation history

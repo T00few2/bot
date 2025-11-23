@@ -88,6 +88,23 @@ async function setBotState(key, data) {
   await db.collection("bot_state").doc(String(key)).set(data, { merge: true });
 }
 
+/**
+ * Get a single bot knowledge entry by key
+ */
+async function getBotKnowledge(key) {
+  const doc = await db.collection("bot_knowledge").doc(String(key)).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
+}
+
+/**
+ * Get all bot knowledge entries
+ */
+async function getAllBotKnowledge() {
+  const snap = await db.collection("bot_knowledge").get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 module.exports = {
   db,
   getUserZwiftId,
@@ -96,4 +113,6 @@ module.exports = {
   searchRidersByName,
   getBotState,
   setBotState,
+  getBotKnowledge,
+  getAllBotKnowledge,
 }; 

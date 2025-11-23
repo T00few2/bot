@@ -1,6 +1,7 @@
 const OpenAI = require("openai");
 const { ChannelType } = require("discord.js");
 const config = require("../config/config");
+const { getAllBotKnowledge } = require("../services/firebase");
 const { 
   handleRiderStats, 
   handleTeamStats, 
@@ -111,6 +112,20 @@ function buildTeamComment(team) {
  * OpenAI Function Definitions - Maps to your existing slash commands
  */
 const functionDefinitions = [
+  {
+    name: "get_help_article",
+    description: "Fetch a short help/knowledge article configured by the admin (for onboarding, ZwiftID help, links, etc.).",
+    parameters: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          description: "Short topic or keyword describing what help is needed (e.g. 'zwiftid', 'membership', 'notifications')."
+        }
+      },
+      required: ["topic"]
+    }
+  },
   {
     name: "rider_stats",
     description: "Fetch stats for a single rider by their Zwift ID or Discord user mention",
@@ -514,6 +529,42 @@ async function executeCommand(functionCall, message) {
         await handleSetZwiftId(interaction);
         return { success: true };
       }
+
+      case "get_help_article": {
+        const topic = (args.topic || "").toString().toLowerCase();
+        const all = await getAllBotKnowledge();
+        if (!all || all.length === 0) {
+          return { success: false, message: "No bot knowledge entries configured." };
+        }
+
+        // Very simple matching: check key, title and tags for substring
+        const scored = all.map(entry => {
+          const key = (entry.key || entry.id || "").toString().toLowerCase();
+          const title = (entry.title || "").toLowerCase();
+          const tags = Array.isArray(entry.tags) ? entry.tags.map(t => String(t).toLowerCase()) : [];
+          let score = 0;
+          if (key.includes(topic)) score += 3;
+          if (title.includes(topic)) score += 2;
+          if (tags.some(t => t.includes(topic))) score += 2;
+          return { entry, score };
+        }).filter(x => x.score > 0);
+
+        if (scored.length === 0) {
+          return { success: false, message: `No knowledge entry matched topic '${topic}'.` };
+        }
+
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored[0].entry;
+
+        // Return a compact payload for the model to use
+        return {
+          success: true,
+          key: best.key || best.id,
+          title: best.title || "",
+          content: best.content || "",
+          tags: best.tags || []
+        };
+      }
       
       default:
         await message.reply(`❌ Unknown command: ${name}`);
@@ -571,7 +622,7 @@ async function handleAIChatMessage(message, client) {
   if (message.author.bot) return;
 
   const isDM = message.channel.type === ChannelType.DM;
-  
+
   // In guild channels: only respond when the bot is mentioned.
   // In DMs: treat every message as directed to the bot.
   if (!isDM && !message.mentions.users.has(client.user.id)) return;
@@ -579,7 +630,7 @@ async function handleAIChatMessage(message, client) {
   try {
     // Show typing indicator
     await message.channel.sendTyping();
-    
+
     // Clean the message (remove only the bot mention, preserve user mentions)
     const botMentionPattern = new RegExp(`<@!?${client.user.id}>`, 'g');
     const cleanedMessage = message.content
@@ -595,7 +646,7 @@ async function handleAIChatMessage(message, client) {
     
     // Get or create conversation history
     let conversation = userConversations.get(userId);
-    
+
     if (!conversation) {
       // Initialize new conversation
       conversation = [
@@ -606,6 +657,10 @@ async function handleAIChatMessage(message, client) {
 - Comparing multiple riders' performance
 - Looking up and linking Zwift IDs to Discord accounts
 - Searching for riders and events
+
+You also have access to a small admin-maintained knowledge base ("Bot Knowledge") with short help articles and links.
+Before inventing answers, consider whether one of these articles is relevant and, if so, call the "get_help_article" function
+with a short topic keyword (e.g. "zwiftid", "membership", "notifications") to fetch it, then use its content in your answer.
 
 When users mention Discord users with @ (like @Chris), preserve the mention format in your function calls.
 Be friendly, concise, and helpful. If you need to call a function, do so. If you can't help with something, politely explain why.

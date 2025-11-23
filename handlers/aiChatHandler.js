@@ -407,20 +407,31 @@ async function executeCommand(functionCall, message) {
           strings: {},
           users: {}
         };
-        
-        if (args.zwiftid) {
-          options.strings.zwiftid = args.zwiftid;
-        }
-        
-        if (args.discord_username) {
-          const user = resolveUser(args.discord_username, message);
-          if (!user) {
-            await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return { success: false, message: `Discord user ${args.discord_username} not found` };
+
+        // If no explicit ZwiftID or Discord user was provided, assume user means "my stats"
+        if (!args.zwiftid && !args.discord_username) {
+          const selfZwiftId = await getUserZwiftId(message.author.id);
+          if (!selfZwiftId) {
+            const msg = "❌ I couldn't find a linked ZwiftID for you. Please link one first using `/my_zwiftid`.";
+            await message.reply(msg);
+            return { success: false, message: msg };
           }
-          options.users.discorduser = user;
+          options.strings.zwiftid = String(selfZwiftId);
+        } else {
+          if (args.zwiftid) {
+            options.strings.zwiftid = args.zwiftid;
+          }
+
+          if (args.discord_username) {
+            const user = resolveUser(args.discord_username, message);
+            if (!user) {
+              await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
+              return { success: false, message: `Discord user ${args.discord_username} not found` };
+            }
+            options.users.discorduser = user;
+          }
         }
-        
+
         const interaction = createSyntheticInteraction(message, options);
         const result = await handleRiderStats(interaction);
         return result ?? { success: true };

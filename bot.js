@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, REST, Routes } = require("discord.js");
+const { Client, GatewayIntentBits, REST, Routes, Partials } = require("discord.js");
 const config = require("./config/config");
 const commands = require("./commands/slashCommands");
 const { setupKeepAliveServer } = require("./services/server");
@@ -24,12 +24,14 @@ setupKeepAliveServer();
 const client = new Client({ 
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,  // Added for welcome messages and role management
-    GatewayIntentBits.GuildMessages, // Added for activity stats
-    GatewayIntentBits.GuildMessageReactions, // Added for reaction stats and approval reactions
-    GatewayIntentBits.GuildVoiceStates, // Added for voice activity stats
-    GatewayIntentBits.MessageContent // Added to read message content for stats
-  ] 
+    GatewayIntentBits.GuildMembers,           // Welcome messages and role management
+    GatewayIntentBits.GuildMessages,          // Guild message activity
+    GatewayIntentBits.GuildMessageReactions,  // Reaction stats and approval reactions
+    GatewayIntentBits.GuildVoiceStates,       // Voice activity stats
+    GatewayIntentBits.MessageContent,         // Read message content
+    GatewayIntentBits.DirectMessages          // Enable DMs to the bot
+  ],
+  partials: [Partials.Channel] // Required to receive DMs as messageCreate events
 });
 
 // Register Slash Commands

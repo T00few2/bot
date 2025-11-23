@@ -1,4 +1,5 @@
 const OpenAI = require("openai");
+const { ChannelType } = require("discord.js");
 const config = require("../config/config");
 const { 
   handleRiderStats, 
@@ -568,9 +569,12 @@ async function handleAIChatMessage(message, client) {
   
   // Ignore bot messages
   if (message.author.bot) return;
+
+  const isDM = message.channel.type === ChannelType.DM;
   
-  // Only respond when the bot is directly mentioned (exclude @everyone/@here)
-  if (!message.mentions.users.has(client.user.id)) return;
+  // In guild channels: only respond when the bot is mentioned.
+  // In DMs: treat every message as directed to the bot.
+  if (!isDM && !message.mentions.users.has(client.user.id)) return;
   
   try {
     // Show typing indicator

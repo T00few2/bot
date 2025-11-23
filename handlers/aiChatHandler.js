@@ -347,11 +347,33 @@ function resolveUser(userString, message) {
   const mentionMatch = userString.match(/<@!?(\d+)>/);
   if (mentionMatch) {
     const userId = mentionMatch[1];
-    return message.mentions.users.get(userId) || message.guild.members.cache.get(userId)?.user;
+    // Try mentions, then global user cache (DMs may not have a guild)
+    const mentioned = message.mentions.users.get(userId);
+    if (mentioned) return mentioned;
+    if (message.client && message.client.users) {
+      return message.client.users.cache.get(userId) || null;
+    }
+    return null;
   }
   
   // Search by username (case-insensitive)
   const username = userString.replace('@', '').toLowerCase();
+
+  // If we're in a DM, we don't have a guild member list – fall back to the author
+  if (!message.guild) {
+    const author = message.author;
+    if (!author) return null;
+    const tag = (author.tag || "").toLowerCase();
+    if (
+      author.username.toLowerCase() === username ||
+      tag === username
+    ) {
+      return author;
+    }
+    return null;
+  }
+
+  // In guilds, search member cache
   const member = message.guild.members.cache.find(m => 
     m.user.username.toLowerCase() === username || 
     m.user.tag.toLowerCase() === username ||

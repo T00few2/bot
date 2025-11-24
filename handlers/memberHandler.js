@@ -227,7 +227,17 @@ async function handleVerificationCheck(member) {
  */
 async function checkVerificationAfterZwiftLink(guild, userId) {
   try {
+    // In some contexts (DMs or synthetic interactions) guild can be null/undefined.
+    if (!guild || !guild.members) {
+      console.log("ℹ️ Skipping verification check after ZwiftID link – no guild context available.");
+      return;
+    }
+
     const member = await guild.members.fetch(userId);
+    if (!member) {
+      console.log(`ℹ️ Could not fetch member ${userId} for verification check after ZwiftID link.`);
+      return;
+    }
     await handleVerificationCheck(member);
   } catch (error) {
     console.error("❌ Error checking verification after ZwiftID link:", error);

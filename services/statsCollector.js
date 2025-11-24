@@ -23,7 +23,7 @@ class StatsCollector {
       userId: message.author.id,
       username: message.author.username,
       channelId: message.channel.id,
-      channelName: message.channel.name,
+      channelName: message.channel?.name || 'unknown',
       timestamp: Date.now(),
       messageLength: message.content.length,
       hasAttachments: message.attachments.size > 0
@@ -42,7 +42,7 @@ class StatsCollector {
       userId: user.id,
       username: user.username,
       channelId: reaction.message.channel.id,
-      channelName: reaction.message.channel.name,
+      channelName: reaction.message.channel?.name || 'unknown',
       emoji: reaction.emoji.name,
       timestamp: Date.now()
     });
@@ -63,7 +63,7 @@ class StatsCollector {
         userId: user.id,
         username: user.username,
         channelId: newState.channel.id,
-        channelName: newState.channel.name,
+        channelName: newState.channel?.name || 'unknown',
         action: 'join',
         timestamp: Date.now()
       });
@@ -75,7 +75,7 @@ class StatsCollector {
         userId: user.id,
         username: user.username,
         channelId: oldState.channel.id,
-        channelName: oldState.channel.name,
+        channelName: oldState.channel?.name || 'unknown',
         action: 'leave',
         timestamp: Date.now()
       });
@@ -95,7 +95,7 @@ class StatsCollector {
       username: interaction.user.username,
       commandName: interaction.commandName,
       channelId: interaction.channel?.id,
-      channelName: interaction.channel?.name,
+      channelName: interaction.channel?.name || 'unknown',
       timestamp: Date.now()
     });
     

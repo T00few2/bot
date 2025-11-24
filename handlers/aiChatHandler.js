@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 const { ChannelType } = require("discord.js");
 const config = require("../config/config");
-const { getAllBotKnowledge, getUserZwiftId } = require("../services/firebase");
+const { getAllBotKnowledge, getUserZwiftId, getDZRTeamsAndSeries } = require("../services/firebase");
 const { 
   handleRiderStats, 
   handleTeamStats, 
@@ -124,6 +124,27 @@ const functionDefinitions = [
         }
       },
       required: ["topic"]
+    }
+  },
+  {
+    name: "get_dzr_teams",
+    description: "Get structured information about Danish Zwift Racers (DZR) teams and race series derived from backend-managed role panels.",
+    parameters: {
+      type: "object",
+      properties: {
+        series: {
+          type: "string",
+          description: "Optional race series filter, e.g. 'WTRL ZRL', 'WTRL TTT', 'DRS', 'Club Ladder'."
+        },
+        division: {
+          type: "string",
+          description: "Optional division filter, e.g. 'A1', 'B2', 'Doppio', 'Diamond'."
+        },
+        looking_for_riders: {
+          type: "boolean",
+          description: "If true, only return teams that are actively looking for riders."
+        }
+      }
     }
   },
   {
@@ -598,6 +619,44 @@ async function executeCommand(functionCall, message) {
           tags: best.tags || []
         };
       }
+
+      case "get_dzr_teams": {
+        const { teams, series } = await getDZRTeamsAndSeries();
+        let filteredTeams = teams;
+
+        if (args.series) {
+          const s = String(args.series).toLowerCase();
+          filteredTeams = filteredTeams.filter(
+            (t) => (t.raceSeries || "").toLowerCase() === s
+          );
+        }
+        if (args.division) {
+          const d = String(args.division).toLowerCase();
+          filteredTeams = filteredTeams.filter(
+            (t) => (t.division || "").toLowerCase() === d
+          );
+        }
+        if (typeof args.looking_for_riders === "boolean") {
+          if (args.looking_for_riders) {
+            filteredTeams = filteredTeams.filter((t) => !!t.lookingForRiders);
+          }
+        }
+
+        // Return a compact payload
+        return {
+          success: true,
+          teams: filteredTeams.map((t) => ({
+            teamName: t.teamName || t.roleName,
+            raceSeries: t.raceSeries,
+            division: t.division,
+            rideTime: t.rideTime,
+            lookingForRiders: !!t.lookingForRiders,
+            captainDiscordId: t.teamCaptainId || null,
+            captainDisplayName: t.captainDisplayName || null,
+          })),
+          series: series,
+        };
+      }
       
       default:
         await message.reply(`❌ Unknown command: ${name}`);
@@ -715,6 +774,11 @@ async function handleAIChatMessage(message, client) {
 You also have access to a small admin-maintained knowledge base ("Bot Knowledge") with short help articles and links.
 Before inventing answers, consider whether one of these articles is relevant and, if so, call the "get_help_article" function
 with a short topic keyword (e.g. "zwiftid", "membership", "notifications") to fetch it, then use its content in your answer.
+
+You also have structured access to Danish Zwift Racers (DZR) teams and race series derived from Discord role panels. When users ask about DZR teams
+(e.g. which teams exist, which teams are looking for riders, or teams in a specific series/division), call the "get_dzr_teams"
+function with appropriate filters (series, division, looking_for_riders) instead of guessing, and then base your answer on
+its returned data.
 
 When users mention Discord users with @ (like @Chris), preserve the mention format in your function calls.
 Be friendly, concise, and helpful. If you need to call a function, do so. If you can't help with something, politely explain why.

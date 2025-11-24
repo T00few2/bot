@@ -93,12 +93,18 @@ async function setBotState(key, data) {
  */
 async function getRolePanels() {
   const guildId = config.discord.guildId;
-  if (!guildId) {
-    throw new Error("DISCORD_GUILD_ID is not configured.");
+  // Preferred: use explicit guildId
+  if (guildId) {
+    const doc = await db.collection("selfRoles").doc(guildId).get();
+    if (doc.exists) {
+      return doc.data(); // { panels: { panelId: { ... } } }
+    }
   }
-  const doc = await db.collection("selfRoles").doc(guildId).get();
-  if (!doc.exists) return null;
-  return doc.data(); // { panels: { panelId: { ... } } }
+
+  // Fallback: use first selfRoles document (for environments where DISCORD_GUILD_ID is not set)
+  const snap = await db.collection("selfRoles").limit(1).get();
+  if (snap.empty) return null;
+  return snap.docs[0].data();
 }
 
 /**

@@ -89,6 +89,76 @@ async function setBotState(key, data) {
 }
 
 /**
+ * Get self-assignable role panels (same structure as used by the web role manager)
+ */
+async function getRolePanels() {
+  const guildId = config.discord.guildId;
+  if (!guildId) {
+    throw new Error("DISCORD_GUILD_ID is not configured.");
+  }
+  const doc = await db.collection("selfRoles").doc(guildId).get();
+  if (!doc.exists) return null;
+  return doc.data(); // { panels: { panelId: { ... } } }
+}
+
+/**
+ * Derive structured DZR teams and race series from role panel data.
+ * - Team = role with isTeamRole === true AND teamCaptainId set
+ * - Series = role with no teamCaptainId (typically access to series channels)
+ */
+async function getDZRTeamsAndSeries() {
+  const data = await getRolePanels();
+  if (!data || !data.panels) {
+    return { teams: [], series: [] };
+  }
+
+  const teams = [];
+  const series = [];
+
+  for (const [panelId, panel] of Object.entries(data.panels)) {
+    const panelName = panel.name || panelId;
+    const panelDescription = panel.description || "";
+    const channelId = panel.channelId || null;
+
+    for (const role of panel.roles || []) {
+      const isTeam = !!role.isTeamRole && !!role.teamCaptainId;
+
+      const base = {
+        roleId: role.roleId,
+        roleName: role.roleName || role.roleId,
+        panelId,
+        panelName,
+        panelDescription,
+        channelId,
+        buttonColor: role.buttonColor || "Secondary",
+        visibility: role.visibility || "public",
+      };
+
+      if (isTeam) {
+        teams.push({
+          ...base,
+          teamName: role.teamName || base.roleName,
+          raceSeries: role.raceSeries || null,
+          division: role.division || null,
+          rideTime: role.rideTime || null,
+          lookingForRiders: !!role.lookingForRiders,
+          teamCaptainId: role.teamCaptainId || null,
+          captainDisplayName: role.captainDisplayName || null,
+        });
+      } else {
+        series.push({
+          ...base,
+          raceSeries: role.raceSeries || null,
+          requiresApproval: !!role.requiresApproval,
+        });
+      }
+    }
+  }
+
+  return { teams, series };
+}
+
+/**
  * Get a single bot knowledge entry by key
  */
 async function getBotKnowledge(key) {
@@ -113,6 +183,8 @@ module.exports = {
   searchRidersByName,
   getBotState,
   setBotState,
+  getRolePanels,
+  getDZRTeamsAndSeries,
   getBotKnowledge,
   getAllBotKnowledge,
 }; 

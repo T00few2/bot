@@ -180,7 +180,8 @@ async function handleInteractions(interaction) {
         const VERIFIED_ROLE_ID = '1385216556166025347';
         if (!member.roles.cache.has(VERIFIED_ROLE_ID)) {
           await interaction.editReply(
-            "❌ Du skal være Verified Member for at tilmelde dig. Brug /my_zwiftid for at linke din Zwift ID og få rollen."
+            "❌ Du skal være Verified Member for at tilmelde dig.\n\n" +
+              "Skriv dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn til mig, så linker jeg det og du kan få rollen."
           );
           return;
         }

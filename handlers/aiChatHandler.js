@@ -123,6 +123,23 @@ function getConversationKey(message) {
   return `${guildId}:${channelId}:${userId}`;
 }
 
+async function isReplyToBot(message, client) {
+  const refId = message?.reference?.messageId;
+  if (!refId) return false;
+
+  try {
+    const cached = message.channel?.messages?.cache?.get(refId);
+    if (cached) return cached.author?.id === client.user.id;
+
+    // Fallback: fetch referenced message (may fail if missing perms / deleted)
+    const fetched = await message.channel.messages.fetch(refId).catch(() => null);
+    if (!fetched) return false;
+    return fetched.author?.id === client.user.id;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Build a short, human-friendly rider commentary from summarized stats
  */
@@ -563,7 +580,12 @@ async function executeSingleToolCall(toolCall, message) {
         if (!args.zwiftid && !args.discord_username) {
           const selfZwiftId = await getUserZwiftId(message.author.id);
           if (!selfZwiftId) {
-            const msg = "❌ I couldn't find a linked ZwiftID for you. Please link one first using `/my_zwiftid`.";
+            const msg =
+              "❌ I couldn't find a linked ZwiftID for you.\n\n" +
+              "I can link it for you — just reply to this message (or mention me again) with either:\n" +
+              "• your ZwiftID (numbers only), or\n" +
+              "• the first 3+ letters of your Zwift name.\n\n" +
+              "Then I’ll link it and fetch your stats.";
             await message.reply(msg);
             return { tool_call_id: toolCall.id, success: false, message: msg };
           }
@@ -977,7 +999,11 @@ async function handleAIChatMessage(message, client) {
 
   // In guild channels: only respond when the bot is mentioned.
   // In DMs: treat every message as directed to the bot.
-  if (!isDM && !message.mentions.users.has(client.user.id)) return;
+  if (!isDM) {
+    const mentioned = message.mentions.users.has(client.user.id);
+    const repliedToMe = await isReplyToBot(message, client);
+    if (!mentioned && !repliedToMe) return;
+  }
   
   try {
     // Show typing indicator
@@ -999,7 +1025,11 @@ async function handleAIChatMessage(message, client) {
     if (normalized === "mine stats" || normalized === "my stats") {
       const zwiftId = await getUserZwiftId(message.author.id);
       if (!zwiftId) {
-        await message.reply("❌ Du har endnu ikke linket et ZwiftID. Brug `/my_zwiftid` eller send dit ZwiftID i den dedikerede kanal, så hjælper jeg dig videre.");
+        await message.reply(
+          "❌ Du har endnu ikke linket et ZwiftID.\n\n" +
+          "Svar på denne besked med dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn — så linker jeg det for dig.\n" +
+          "(Alternativt: nævn mig igen i kanalen.)"
+        );
         return;
       }
 

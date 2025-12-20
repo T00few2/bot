@@ -123,7 +123,10 @@ async function handleZwiftIdMessage(message) {
   } catch (error) {
     console.error("Error handling Zwift ID message:", error);
     try {
-      await message.reply("⚠️ An error occurred while processing your Zwift ID. Please try again or use `/my_zwiftid` command.");
+      await message.reply(
+        "⚠️ Der opstod en fejl, da jeg forsøgte at linke dit ZwiftID.\n\n" +
+        "Prøv igen ved at sende dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn."
+      );
     } catch (replyError) {
       // Ignore if we can't reply
     }
@@ -194,7 +197,9 @@ async function handleZwiftIdConfirmation(interaction) {
     } catch (error) {
       console.error("Error confirming Zwift ID:", error);
       await interaction.editReply({
-        content: "⚠️ An error occurred while linking your Zwift ID. Please try again or use `/my_zwiftid` command."
+        content:
+          "⚠️ Der opstod en fejl, da jeg forsøgte at linke dit ZwiftID.\n\n" +
+          "Prøv igen ved at sende dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn."
       });
     }
   }

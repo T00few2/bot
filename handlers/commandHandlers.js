@@ -129,7 +129,11 @@ async function handleGetZwiftId(interaction) {
     const zwiftId = await getUserZwiftId(targetUser.id);
     
     if (!zwiftId) {
-      await ephemeralReplyWithPublish(interaction, `❌ ${targetUser.username} has not linked a ZwiftID yet.`);
+      await ephemeralReplyWithPublish(
+        interaction,
+        `❌ ${targetUser.username} has not linked a ZwiftID yet.\n\n` +
+          `Tell them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
+      );
       return;
     }
 
@@ -150,7 +154,9 @@ async function handleRiderStats(interaction) {
     if (!zwiftID && discordUser) {
       zwiftID = await getUserZwiftId(discordUser.id);
       if (!zwiftID) {
-        const message = `❌ **${discordUser.username}** has not linked their ZwiftID yet!`;
+        const message =
+          `❌ **${discordUser.username}** has not linked their ZwiftID yet!\n\n` +
+          `Tip: Ask them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`;
         await ephemeralReplyWithPublish(interaction, message);
         return { success: false, message };
       }
@@ -270,7 +276,11 @@ async function handleTeamStats(interaction) {
     for (const userObj of userMentions) {
       const zwiftId = await getUserZwiftId(userObj.id);
       if (!zwiftId) {
-        await ephemeralReplyWithPublish(interaction, `❌ **${userObj.username}** has not linked a ZwiftID yet!`);
+        await ephemeralReplyWithPublish(
+          interaction,
+          `❌ **${userObj.username}** has not linked a ZwiftID yet!\n\n` +
+            `Ask them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
+        );
         return;
       }
       discordToZwiftMap[userObj.id] = zwiftId;
@@ -426,7 +436,11 @@ async function handleWhoAmI(interaction) {
     const zwiftId = await getUserZwiftId(interaction.user.id);
     
     if (!zwiftId) {
-      await ephemeralReplyWithPublish(interaction, "❌ You haven't linked a ZwiftID yet. Use `/my_zwiftid` to link one.");
+      await ephemeralReplyWithPublish(
+        interaction,
+        "❌ You haven't linked a ZwiftID yet.\n\n" +
+          "Just reply here with your ZwiftID (numbers only) or the first 3+ letters of your Zwift name, and I’ll link it for you."
+      );
       return;
     }
 

@@ -42,6 +42,87 @@ const AI_CONFIG = {
   retryDelayMs: 2000,     // Base delay between retries
 };
 
+// Tool-calling safety
+const MAX_TOOL_ITERATIONS = 2;
+
+// These tools already produce user-visible Discord messages via existing handlers.
+// If we also ask the LLM to "respond with results" afterwards, it often becomes duplicate/noisy.
+const TOOLS_THAT_REPLY_DIRECTLY = new Set([
+  "rider_stats",
+  "team_stats",
+  "whoami",
+  "get_zwiftid",
+  "browse_riders",
+  "event_results",
+  "my_zwiftid",
+  "set_zwiftid",
+]);
+
+function safeStringify(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return JSON.stringify({ success: false, message: "Failed to serialize tool result." });
+  }
+}
+
+/**
+ * Compact tool results before adding them to the model context.
+ * Big payloads (e.g. teams arrays) quickly degrade model performance & cost.
+ */
+function compactToolResult(result) {
+  if (!result || typeof result !== "object") return result;
+
+  const base = {
+    tool_call_id: result.tool_call_id,
+    success: !!result.success,
+  };
+
+  if (typeof result.message === "string" && result.message.length > 0) {
+    base.message = result.message.slice(0, 500);
+  }
+
+  // Common payloads
+  if (result.rider) {
+    base.rider = result.rider;
+  }
+  if (result.team) {
+    base.team = Array.isArray(result.team) ? result.team.slice(0, 8) : result.team;
+    if (Array.isArray(result.team) && result.team.length > 8) base.team_truncated = true;
+  }
+  if (result.teams) {
+    base.teams = Array.isArray(result.teams) ? result.teams.slice(0, 25) : result.teams;
+    if (Array.isArray(result.teams) && result.teams.length > 25) base.teams_truncated = true;
+  }
+  if (typeof result.title === "string" || typeof result.content === "string") {
+    base.title = typeof result.title === "string" ? result.title.slice(0, 200) : undefined;
+    base.content = typeof result.content === "string" ? result.content.slice(0, 2000) : undefined;
+    base.tags = Array.isArray(result.tags) ? result.tags.slice(0, 25) : undefined;
+  }
+  if (result.metadata) base.metadata = result.metadata;
+  if (result.series) base.series = result.series;
+  if (typeof result.error === "string") base.error = result.error.slice(0, 300);
+
+  // Fallback: keep only small scalar keys
+  const keepScalars = {};
+  for (const [k, v] of Object.entries(result)) {
+    if (k in base) continue;
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" && v.length <= 200) keepScalars[k] = v;
+    else if (typeof v === "number" || typeof v === "boolean") keepScalars[k] = v;
+  }
+  if (Object.keys(keepScalars).length > 0) base.extra = keepScalars;
+
+  return base;
+}
+
+function getConversationKey(message) {
+  const userId = message?.author?.id || "unknown_user";
+  const channelId = message?.channelId || message?.channel?.id || "unknown_channel";
+  const guildId = message?.guild?.id || message?.guildId || "dm";
+  return `${guildId}:${channelId}:${userId}`;
+}
+
 /**
  * Build a short, human-friendly rider commentary from summarized stats
  */
@@ -736,31 +817,67 @@ async function executeToolCalls(toolCalls, message) {
  * Clear conversation for a user
  */
 function clearConversation(userId) {
-  userConversations.delete(userId);
-  const timer = conversationTimers.get(userId);
+  const key = String(userId);
+
+  // If passed a scoped conversation key, just clear that one.
+  if (key.includes(":")) {
+    clearConversationForKey(key);
+    return;
+  }
+
+  // Legacy: clear any per-user conversation (old behavior)
+  userConversations.delete(key);
+  const timer = conversationTimers.get(key);
   if (timer) {
     clearTimeout(timer);
-    conversationTimers.delete(userId);
+    conversationTimers.delete(key);
   }
-  console.log(`🧹 Cleared conversation for user ${userId}`);
+
+  // New: clear all scoped conversations for this user across guilds/channels
+  for (const k of Array.from(userConversations.keys())) {
+    if (typeof k === "string" && k.endsWith(`:${key}`)) {
+      userConversations.delete(k);
+    }
+  }
+  for (const k of Array.from(conversationTimers.keys())) {
+    if (typeof k === "string" && k.endsWith(`:${key}`)) {
+      const t = conversationTimers.get(k);
+      if (t) clearTimeout(t);
+      conversationTimers.delete(k);
+    }
+  }
+
+  console.log(`🧹 Cleared conversation(s) for user ${key}`);
+}
+
+function clearConversationForKey(conversationKey) {
+  const key = String(conversationKey);
+  userConversations.delete(key);
+  const timer = conversationTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    conversationTimers.delete(key);
+  }
+  console.log(`🧹 Cleared conversation for key ${key}`);
 }
 
 /**
  * Reset conversation timeout for a user
  */
 function resetConversationTimeout(userId) {
+  const key = String(userId);
   // Clear existing timer
-  const existingTimer = conversationTimers.get(userId);
+  const existingTimer = conversationTimers.get(key);
   if (existingTimer) {
     clearTimeout(existingTimer);
   }
   
   // Set new timer
   const timer = setTimeout(() => {
-    clearConversation(userId);
+    clearConversation(key);
   }, CONVERSATION_TIMEOUT);
   
-  conversationTimers.set(userId, timer);
+  conversationTimers.set(key, timer);
 }
 
 /**
@@ -881,9 +998,10 @@ async function handleAIChatMessage(message, client) {
     }
 
     const userId = message.author.id;
+    const conversationKey = getConversationKey(message);
     
     // Get or create conversation history
-    let conversation = userConversations.get(userId);
+    let conversation = userConversations.get(conversationKey);
 
     if (!conversation) {
       // Initialize new conversation with dynamic system prompt
@@ -930,61 +1048,90 @@ async function handleAIChatMessage(message, client) {
         tool_calls: responseMessage.tool_calls
       });
 
-      // Execute all tool calls (parallel if multiple)
-      const toolResults = await executeToolCalls(responseMessage.tool_calls, message);
-      
-      // Add tool results to conversation
-      for (const result of toolResults) {
-        conversation.push({
-          role: "tool",
-          tool_call_id: result.tool_call_id,
-          content: JSON.stringify(result)
-        });
-      }
+      // Tool calling loop: execute tools, append results, then let the model produce a user-facing answer.
+      // (Bounded to avoid infinite tool loops.)
+      let currentToolCalls = responseMessage.tool_calls;
+      let toolResults = [];
+      let iteration = 0;
 
-      // Check if we should generate a follow-up commentary
-      const hasStatsCall = responseMessage.tool_calls.some(
-        tc => tc.function.name === "rider_stats" || tc.function.name === "team_stats"
-      );
-      const allSuccessful = toolResults.every(r => r.success);
+      while (currentToolCalls && currentToolCalls.length > 0 && iteration < MAX_TOOL_ITERATIONS) {
+        // Execute all tool calls (parallel if multiple)
+        toolResults = await executeToolCalls(currentToolCalls, message);
 
-      if (hasStatsCall && allSuccessful) {
-        // Trim conversation before follow-up
-        if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
-          conversation = [
-            conversation[0],
-            ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
-          ];
+        // Add tool results to conversation (compact to reduce context bloat)
+        for (const result of toolResults) {
+          conversation.push({
+            role: "tool",
+            tool_call_id: result.tool_call_id,
+            content: safeStringify(compactToolResult(result))
+          });
         }
 
-        try {
-          const isTeamStats = responseMessage.tool_calls.some(tc => tc.function.name === "team_stats");
-          const prompt = isTeamStats
-            ? "Give a playful 1-3 sentence commentary comparing these riders. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists."
-            : "Give a playful 1-3 sentence commentary about the rider. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists.";
+        // If the tools already handled user-visible output, don't force an extra LLM "result summary".
+        // Exception: we still do the playful stats commentary below.
+        const shouldSkipGenericAnswer = currentToolCalls.every(tc => TOOLS_THAT_REPLY_DIRECTLY.has(tc.function.name));
 
-          const followUpMessages = [
-            ...conversation,
-            { role: "user", content: prompt }
-          ];
+        // Check if we should generate a follow-up commentary for stats
+        const hasStatsCall = currentToolCalls.some(
+          tc => tc.function.name === "rider_stats" || tc.function.name === "team_stats"
+        );
+        const allSuccessful = toolResults.every(r => r.success);
 
-          const followUp = await callOpenAIWithRetry({
-            model: AI_CONFIG.model,
-            messages: followUpMessages,
-            temperature: 1.0, // Higher creativity for commentary
-            max_tokens: 300
-          });
+        if (hasStatsCall && allSuccessful) {
+          // Trim conversation before follow-up
+          if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
+            conversation = [
+              conversation[0],
+              ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
+            ];
+          }
 
-          const followUpMessage = followUp.choices[0]?.message;
+          try {
+            const isTeamStats = currentToolCalls.some(tc => tc.function.name === "team_stats");
+            const prompt = isTeamStats
+              ? "Give a playful 1-3 sentence commentary comparing these riders. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists."
+              : "Give a playful 1-3 sentence commentary about the rider. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists.";
 
-          if (followUpMessage?.content && followUpMessage.content.trim().length > 0) {
-            conversation.push({
-              role: "assistant",
-              content: followUpMessage.content
+            const followUpMessages = [
+              ...conversation,
+              { role: "user", content: prompt }
+            ];
+
+            const followUp = await callOpenAIWithRetry({
+              model: AI_CONFIG.model,
+              messages: followUpMessages,
+              temperature: 1.0, // Higher creativity for commentary
+              max_tokens: 300
             });
 
-            await message.reply(followUpMessage.content);
-          } else {
+            const followUpMessage = followUp.choices[0]?.message;
+
+            if (followUpMessage?.content && followUpMessage.content.trim().length > 0) {
+              conversation.push({
+                role: "assistant",
+                content: followUpMessage.content
+              });
+
+              await message.reply(followUpMessage.content);
+            } else {
+              // Fallback to heuristic commentary
+              const statsResult = toolResults.find(r => r.rider || r.team);
+              if (statsResult?.rider) {
+                const fallback = buildRiderComment(statsResult.rider);
+                if (fallback) {
+                  conversation.push({ role: "assistant", content: fallback });
+                  await message.reply(fallback);
+                }
+              } else if (statsResult?.team) {
+                const fallback = buildTeamComment(statsResult.team);
+                if (fallback) {
+                  conversation.push({ role: "assistant", content: fallback });
+                  await message.reply(fallback);
+                }
+              }
+            }
+          } catch (followUpError) {
+            console.error("Error generating follow-up AI response:", followUpError);
             // Fallback to heuristic commentary
             const statsResult = toolResults.find(r => r.rider || r.team);
             if (statsResult?.rider) {
@@ -1001,24 +1148,50 @@ async function handleAIChatMessage(message, client) {
               }
             }
           }
-        } catch (followUpError) {
-          console.error("Error generating follow-up AI response:", followUpError);
-          // Fallback to heuristic commentary
-          const statsResult = toolResults.find(r => r.rider || r.team);
-          if (statsResult?.rider) {
-            const fallback = buildRiderComment(statsResult.rider);
-            if (fallback) {
-              conversation.push({ role: "assistant", content: fallback });
-              await message.reply(fallback);
-            }
-          } else if (statsResult?.team) {
-            const fallback = buildTeamComment(statsResult.team);
-            if (fallback) {
-              conversation.push({ role: "assistant", content: fallback });
-              await message.reply(fallback);
-            }
+        }
+
+        // Generic answer step: turn tool results into a natural-language reply when tools didn't already reply.
+        if (!shouldSkipGenericAnswer) {
+          // Trim before asking again
+          if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
+            conversation = [
+              conversation[0],
+              ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
+            ];
+          }
+
+          const postTool = await callOpenAIWithRetry({
+            model: AI_CONFIG.model,
+            messages: conversation,
+            tools: toolDefinitions,
+            tool_choice: "auto",
+            temperature: AI_CONFIG.temperature,
+            max_tokens: AI_CONFIG.maxTokens
+          });
+
+          const postToolMsg = postTool.choices[0]?.message;
+          if (!postToolMsg) break;
+
+          // If the model wants to call more tools, continue the loop.
+          if (postToolMsg.tool_calls && postToolMsg.tool_calls.length > 0) {
+            conversation.push({
+              role: "assistant",
+              content: postToolMsg.content || null,
+              tool_calls: postToolMsg.tool_calls
+            });
+            currentToolCalls = postToolMsg.tool_calls;
+            iteration++;
+            continue;
+          }
+
+          // Otherwise, send its final content (if any).
+          if (postToolMsg.content && postToolMsg.content.trim().length > 0) {
+            conversation.push({ role: "assistant", content: postToolMsg.content });
+            await message.reply(postToolMsg.content);
           }
         }
+
+        break; // Done with tools for this message
       }
     } else {
       // Model responded conversationally (no tool calls)
@@ -1039,10 +1212,10 @@ async function handleAIChatMessage(message, client) {
     }
 
     // Save updated conversation
-    userConversations.set(userId, conversation);
+    userConversations.set(conversationKey, conversation);
     
     // Reset timeout
-    resetConversationTimeout(userId);
+    resetConversationTimeout(conversationKey);
     
   } catch (error) {
     console.error("Error in AI chat handler:", error);

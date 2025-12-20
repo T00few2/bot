@@ -755,17 +755,35 @@ async function executeSingleToolCall(toolCall, message) {
         const { teams, series } = await getDZRTeamsAndSeries();
         let filteredTeams = teams;
 
+        const normalize = (val) =>
+          String(val ?? "")
+            .toLowerCase()
+            .trim()
+            .replace(/[_-]+/g, " ")
+            .replace(/\s+/g, " ");
+
         if (args.series) {
-          const s = String(args.series).toLowerCase();
+          const s = normalize(args.series);
           filteredTeams = filteredTeams.filter(
-            (t) => (t.raceSeries || "").toLowerCase() === s
+            (t) => normalize(t.raceSeries || "") === s
           );
         }
         if (args.division) {
-          const d = String(args.division).toLowerCase();
-          filteredTeams = filteredTeams.filter(
-            (t) => (t.division || "").toLowerCase() === d
-          );
+          const d = normalize(args.division);
+          const isSingleLetterDivision = /^[abcd]$/.test(d);
+          filteredTeams = filteredTeams.filter((t) => {
+            const teamDiv = normalize(t.division || "");
+            if (!teamDiv) return false;
+
+            // If user asks for "B", match B1/B2/B Development/etc.
+            if (isSingleLetterDivision) {
+              return teamDiv.startsWith(d);
+            }
+
+            // Otherwise, allow exact match or startsWith (covers "b2" vs "b2 something"),
+            // and finally fallback to substring match for flexible phrasing.
+            return teamDiv === d || teamDiv.startsWith(d) || teamDiv.includes(d);
+          });
         }
         if (typeof args.looking_for_riders === "boolean") {
           if (args.looking_for_riders) {

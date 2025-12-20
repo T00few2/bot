@@ -22,23 +22,24 @@ const db = admin.firestore();
  * Get user's linked ZwiftID from Discord ID
  */
 async function getUserZwiftId(discordId) {
-  const doc = await db.collection("discord_users").doc(discordId).get();
+  const doc = await db.collection("users").doc(discordId).get();
   if (!doc.exists) {
     return null;
   }
-  return doc.data().zwiftID;
+  return doc.data().zwiftId;
 }
 
 /**
  * Link a Discord user to a ZwiftID
  */
 async function linkUserZwiftId(discordId, username, zwiftId) {
-  await db.collection("discord_users").doc(discordId).set({
-    discordID: discordId,
+  await db.collection("users").doc(discordId).set({
+    discordId: discordId,
     username,
-    zwiftID: zwiftId,
-    linkedAt: admin.firestore.Timestamp.now(),
-  });
+    zwiftId: zwiftId,
+    zwiftLinkedAt: admin.firestore.Timestamp.now(),
+    updatedAt: admin.firestore.Timestamp.now(),
+  }, { merge: true });
 }
 
 /**

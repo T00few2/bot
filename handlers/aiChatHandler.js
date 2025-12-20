@@ -32,6 +32,16 @@ const conversationTimers = new Map();
 // Configuration
 const CONVERSATION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const MAX_CONVERSATION_LENGTH = 20; // Last 20 messages (10 exchanges)
+
+// AI Model Configuration - can be changed to test different models
+const AI_CONFIG = {
+  model: "gpt-4.1-mini",  // Options: "gpt-4o-mini", "gpt-4.1-mini", "gpt-4o", "gpt-4.1"
+  temperature: 0.3,       // Lower = more deterministic function selection
+  maxTokens: 800,         // Increased for better responses
+  maxRetries: 2,          // Retry attempts for rate limits
+  retryDelayMs: 2000,     // Base delay between retries
+};
+
 /**
  * Build a short, human-friendly rider commentary from summarized stats
  */
@@ -109,165 +119,195 @@ function buildTeamComment(team) {
 }
 
 /**
- * OpenAI Function Definitions - Maps to your existing slash commands
+ * OpenAI Tool Definitions - Using modern tools API format
  */
-const functionDefinitions = [
+const toolDefinitions = [
   {
-    name: "get_help_article",
-    description: "Fetch a short help/knowledge article configured by the admin (for onboarding, ZwiftID help, links, etc.).",
-    parameters: {
-      type: "object",
-      properties: {
-        topic: {
-          type: "string",
-          description: "Short topic or keyword describing what help is needed (e.g. 'zwiftid', 'membership', 'notifications')."
-        }
-      },
-      required: ["topic"]
+    type: "function",
+    function: {
+      name: "get_help_article",
+      description: "Fetch a short help/knowledge article configured by the admin (for onboarding, ZwiftID help, links, etc.).",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: {
+            type: "string",
+            description: "Short topic or keyword describing what help is needed (e.g. 'zwiftid', 'membership', 'notifications')."
+          }
+        },
+        required: ["topic"]
+      }
     }
   },
   {
-    name: "get_dzr_teams",
-    description: "Get structured information about Danish Zwift Racers (DZR) teams and race series derived from backend-managed role panels.",
-    parameters: {
-      type: "object",
-      properties: {
-        series: {
-          type: "string",
-          description: "Optional race series filter, e.g. 'WTRL ZRL', 'WTRL TTT', 'DRS', 'Club Ladder'."
-        },
-        division: {
-          type: "string",
-          description: "Optional division filter, e.g. 'A1', 'B2', 'Doppio', 'Diamond'."
-        },
-        looking_for_riders: {
-          type: "boolean",
-          description: "If true, only return teams that are actively looking for riders."
+    type: "function",
+    function: {
+      name: "get_dzr_teams",
+      description: "Get structured information about Danish Zwift Racers (DZR) teams and race series derived from backend-managed role panels.",
+      parameters: {
+        type: "object",
+        properties: {
+          series: {
+            type: "string",
+            description: "Optional race series filter, e.g. 'WTRL ZRL', 'WTRL TTT', 'DRS', 'Club Ladder'."
+          },
+          division: {
+            type: "string",
+            description: "Optional division filter, e.g. 'A1', 'B2', 'Doppio', 'Diamond'."
+          },
+          looking_for_riders: {
+            type: "boolean",
+            description: "If true, only return teams that are actively looking for riders."
+          }
         }
       }
     }
   },
   {
-    name: "rider_stats",
-    description: "Fetch stats for a single rider by their Zwift ID or Discord user mention",
-    parameters: {
-      type: "object",
-      properties: {
-        zwiftid: {
-          type: "string",
-          description: "The Zwift ID of the rider (numeric string)"
-        },
-        discord_username: {
-          type: "string",
-          description: "The Discord username or mention (e.g., '@Chris' or 'Chris')"
+    type: "function",
+    function: {
+      name: "rider_stats",
+      description: "Fetch stats for a single rider by their Zwift ID or Discord user mention",
+      parameters: {
+        type: "object",
+        properties: {
+          zwiftid: {
+            type: "string",
+            description: "The Zwift ID of the rider (numeric string)"
+          },
+          discord_username: {
+            type: "string",
+            description: "The Discord username or mention (e.g., '@Chris' or 'Chris')"
+          }
         }
       }
     }
   },
   {
-    name: "team_stats",
-    description: "Compare stats for multiple riders (2-8 riders). Provide Discord usernames or mentions.",
-    parameters: {
-      type: "object",
-      properties: {
-        riders: {
-          type: "array",
-          items: { type: "string" },
-          description: "Array of Discord usernames or mentions to compare (e.g., ['@Chris', '@John', '@Mike'])",
-          minItems: 2,
-          maxItems: 8
-        }
-      },
-      required: ["riders"]
-    }
-  },
-  {
-    name: "whoami",
-    description: "Get the Zwift ID linked to the user who is asking",
-    parameters: {
-      type: "object",
-      properties: {}
-    }
-  },
-  {
-    name: "get_zwiftid",
-    description: "Get the linked Zwift ID for a specific Discord user",
-    parameters: {
-      type: "object",
-      properties: {
-        discord_username: {
-          type: "string",
-          description: "The Discord username or mention"
-        }
-      },
-      required: ["discord_username"]
-    }
-  },
-  {
-    name: "browse_riders",
-    description: "Search for riders by name (first 3+ letters)",
-    parameters: {
-      type: "object",
-      properties: {
-        searchterm: {
-          type: "string",
-          description: "First 3 or more letters of the rider's name"
-        }
-      },
-      required: ["searchterm"]
-    }
-  },
-  {
-    name: "event_results",
-    description: "Get team results from events matching a search string",
-    parameters: {
-      type: "object",
-      properties: {
-        search: {
-          type: "string",
-          description: "Search string to match in event titles"
-        }
-      },
-      required: ["search"]
-    }
-  },
-  {
-    name: "my_zwiftid",
-    description: "Link the user's Discord account to their Zwift ID. Can provide direct Zwift ID or search term.",
-    parameters: {
-      type: "object",
-      properties: {
-        zwiftid: {
-          type: "string",
-          description: "Direct Zwift ID to link (numeric string)"
+    type: "function",
+    function: {
+      name: "team_stats",
+      description: "Compare stats for multiple riders (2-8 riders). Provide Discord usernames or mentions.",
+      parameters: {
+        type: "object",
+        properties: {
+          riders: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of Discord usernames or mentions to compare (e.g., ['@Chris', '@John', '@Mike'])",
+            minItems: 2,
+            maxItems: 8
+          }
         },
-        searchterm: {
-          type: "string",
-          description: "First 3+ letters of name to search for in club stats"
+        required: ["riders"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "whoami",
+      description: "Get the Zwift ID linked to the user who is asking",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_zwiftid",
+      description: "Get the linked Zwift ID for a specific Discord user",
+      parameters: {
+        type: "object",
+        properties: {
+          discord_username: {
+            type: "string",
+            description: "The Discord username or mention"
+          }
+        },
+        required: ["discord_username"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "browse_riders",
+      description: "Search for riders by name (first 3+ letters)",
+      parameters: {
+        type: "object",
+        properties: {
+          searchterm: {
+            type: "string",
+            description: "First 3 or more letters of the rider's name"
+          }
+        },
+        required: ["searchterm"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "event_results",
+      description: "Get team results from events matching a search string",
+      parameters: {
+        type: "object",
+        properties: {
+          search: {
+            type: "string",
+            description: "Search string to match in event titles"
+          }
+        },
+        required: ["search"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "my_zwiftid",
+      description: "Link the user's Discord account to their Zwift ID. Can provide direct Zwift ID or search term.",
+      parameters: {
+        type: "object",
+        properties: {
+          zwiftid: {
+            type: "string",
+            description: "Direct Zwift ID to link (numeric string)"
+          },
+          searchterm: {
+            type: "string",
+            description: "First 3+ letters of name to search for in club stats"
+          }
         }
       }
     }
   },
   {
-    name: "set_zwiftid",
-    description: "Link a Discord user's account to a Zwift ID (admin/moderator function). Requires manage messages permission.",
-    parameters: {
-      type: "object",
-      properties: {
-        discord_username: {
-          type: "string",
-          description: "The Discord username or mention of the user to link"
+    type: "function",
+    function: {
+      name: "set_zwiftid",
+      description: "Link a Discord user's account to a Zwift ID (admin/moderator function). Requires manage messages permission.",
+      parameters: {
+        type: "object",
+        properties: {
+          discord_username: {
+            type: "string",
+            description: "The Discord username or mention of the user to link"
+          },
+          zwiftid: {
+            type: "string",
+            description: "Direct Zwift ID to link"
+          },
+          searchterm: {
+            type: "string",
+            description: "First 3+ letters to search for the rider"
+          }
         },
-        zwiftid: {
-          type: "string",
-          description: "Direct Zwift ID to link"
-        },
-        searchterm: {
-          type: "string",
-          description: "First 3+ letters to search for the rider"
-        }
-      },
-      required: ["discord_username"]
+        required: ["discord_username"]
+      }
     }
   }
 ];
@@ -405,23 +445,32 @@ function resolveUser(userString, message) {
 }
 
 /**
- * Execute a command based on OpenAI function call
+ * Execute a single tool call
  */
-async function executeCommand(functionCall, message) {
-  const { name, arguments: argsString } = functionCall;
+async function executeSingleToolCall(toolCall, message) {
+  const { name, arguments: argsString } = toolCall.function;
   let args;
   
   try {
     args = JSON.parse(argsString);
   } catch (error) {
     console.error("Error parsing function arguments:", error);
-    await message.reply("⚠️ I had trouble understanding the command parameters. Please try rephrasing.");
-    return { success: false, message: "Invalid function arguments" };
+    return { 
+      tool_call_id: toolCall.id,
+      success: false, 
+      message: "Invalid function arguments" 
+    };
   }
   
-  console.log(`🤖 Executing command: ${name}`, args);
+  console.log(`🤖 Executing tool: ${name}`, {
+    user: message.author.tag,
+    guild: message.guild?.name || 'DM',
+    args
+  });
   
   try {
+    let result;
+    
     switch (name) {
       case "rider_stats": {
         const options = {
@@ -435,7 +484,7 @@ async function executeCommand(functionCall, message) {
           if (!selfZwiftId) {
             const msg = "❌ I couldn't find a linked ZwiftID for you. Please link one first using `/my_zwiftid`.";
             await message.reply(msg);
-            return { success: false, message: msg };
+            return { tool_call_id: toolCall.id, success: false, message: msg };
           }
           options.strings.zwiftid = String(selfZwiftId);
         } else {
@@ -447,15 +496,15 @@ async function executeCommand(functionCall, message) {
             const user = resolveUser(args.discord_username, message);
             if (!user) {
               await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-              return { success: false, message: `Discord user ${args.discord_username} not found` };
+              return { tool_call_id: toolCall.id, success: false, message: `Discord user ${args.discord_username} not found` };
             }
             options.users.discorduser = user;
           }
         }
 
         const interaction = createSyntheticInteraction(message, options);
-        const result = await handleRiderStats(interaction);
-        return result ?? { success: true };
+        result = await handleRiderStats(interaction);
+        return { tool_call_id: toolCall.id, ...(result ?? { success: true }) };
       }
       
       case "team_stats": {
@@ -465,7 +514,7 @@ async function executeCommand(functionCall, message) {
         
         if (!args.riders || !Array.isArray(args.riders)) {
           await message.reply("❌ Please specify 2-8 riders to compare.");
-          return { success: false, message: "Invalid riders array" };
+          return { tool_call_id: toolCall.id, success: false, message: "Invalid riders array" };
         }
         
         // Resolve all rider usernames to User objects
@@ -473,20 +522,20 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.riders[i], message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.riders[i]}`);
-            return { success: false, message: `Discord user ${args.riders[i]} not found` };
+            return { tool_call_id: toolCall.id, success: false, message: `Discord user ${args.riders[i]} not found` };
           }
           options.users[`rider${i + 1}`] = user;
         }
         
         const interaction = createSyntheticInteraction(message, options);
-        const result = await handleTeamStats(interaction);
-        return result ?? { success: true };
+        result = await handleTeamStats(interaction);
+        return { tool_call_id: toolCall.id, ...(result ?? { success: true }) };
       }
       
       case "whoami": {
         const interaction = createSyntheticInteraction(message);
         await handleWhoAmI(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
       
       case "get_zwiftid": {
@@ -498,14 +547,14 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.discord_username, message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return { success: false, message: `Discord user ${args.discord_username} not found` };
+            return { tool_call_id: toolCall.id, success: false, message: `Discord user ${args.discord_username} not found` };
           }
           options.users.discorduser = user;
         }
         
         const interaction = createSyntheticInteraction(message, options);
         await handleGetZwiftId(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
       
       case "browse_riders": {
@@ -517,7 +566,7 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleBrowseRiders(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
       
       case "event_results": {
@@ -529,7 +578,7 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleEventResults(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
       
       case "my_zwiftid": {
@@ -547,14 +596,14 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleMyZwiftId(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
       
       case "set_zwiftid": {
         // Check permissions
-        if (!message.member.permissions.has('ManageMessages')) {
+        if (!message.member?.permissions.has('ManageMessages')) {
           await message.reply("❌ You need 'Manage Messages' permission to set Zwift IDs for other users.");
-          return { success: false, message: "Missing Manage Messages permission" };
+          return { tool_call_id: toolCall.id, success: false, message: "Missing Manage Messages permission" };
         }
         
         const options = {
@@ -566,7 +615,7 @@ async function executeCommand(functionCall, message) {
           const user = resolveUser(args.discord_username, message);
           if (!user) {
             await message.reply(`❌ Could not find Discord user: ${args.discord_username}`);
-            return { success: false, message: `Discord user ${args.discord_username} not found` };
+            return { tool_call_id: toolCall.id, success: false, message: `Discord user ${args.discord_username} not found` };
           }
           options.users.discorduser = user;
         }
@@ -581,14 +630,14 @@ async function executeCommand(functionCall, message) {
         
         const interaction = createSyntheticInteraction(message, options);
         await handleSetZwiftId(interaction);
-        return { success: true };
+        return { tool_call_id: toolCall.id, success: true };
       }
 
       case "get_help_article": {
         const topic = (args.topic || "").toString().toLowerCase();
         const all = await getAllBotKnowledge();
         if (!all || all.length === 0) {
-          return { success: false, message: "No bot knowledge entries configured." };
+          return { tool_call_id: toolCall.id, success: false, message: "No bot knowledge entries configured." };
         }
 
         // Very simple matching: check key, title and tags for substring
@@ -604,7 +653,7 @@ async function executeCommand(functionCall, message) {
         }).filter(x => x.score > 0);
 
         if (scored.length === 0) {
-          return { success: false, message: `No knowledge entry matched topic '${topic}'.` };
+          return { tool_call_id: toolCall.id, success: false, message: `No knowledge entry matched topic '${topic}'.` };
         }
 
         scored.sort((a, b) => b.score - a.score);
@@ -612,6 +661,7 @@ async function executeCommand(functionCall, message) {
 
         // Return a compact payload for the model to use
         return {
+          tool_call_id: toolCall.id,
           success: true,
           key: best.key || best.id,
           title: best.title || "",
@@ -644,6 +694,7 @@ async function executeCommand(functionCall, message) {
 
         // Return a compact payload
         return {
+          tool_call_id: toolCall.id,
           success: true,
           teams: filteredTeams.map((t) => ({
             teamName: t.teamName || t.roleName,
@@ -660,13 +711,25 @@ async function executeCommand(functionCall, message) {
       
       default:
         await message.reply(`❌ Unknown command: ${name}`);
-        return { success: false, message: `Unknown command: ${name}` };
+        return { tool_call_id: toolCall.id, success: false, message: `Unknown command: ${name}` };
     }
   } catch (error) {
-    console.error(`Error executing command ${name}:`, error);
+    console.error(`Error executing tool ${name}:`, error);
     await message.reply("⚠️ An error occurred while executing the command. Please try again.");
-    return { success: false, message: "Unhandled error executing command", error: error?.message };
+    return { tool_call_id: toolCall.id, success: false, message: "Unhandled error executing command", error: error?.message };
   }
+}
+
+/**
+ * Execute multiple tool calls (supports parallel execution)
+ */
+async function executeToolCalls(toolCalls, message) {
+  // Execute all tool calls in parallel
+  const results = await Promise.all(
+    toolCalls.map(toolCall => executeSingleToolCall(toolCall, message))
+  );
+  
+  return results;
 }
 
 /**
@@ -701,13 +764,75 @@ function resetConversationTimeout(userId) {
 }
 
 /**
+ * Build the system prompt with context
+ */
+function buildSystemPrompt(message) {
+  const serverName = message.guild?.name || 'Direct Message';
+  const timestamp = new Date().toISOString();
+  
+  return `You are a helpful Discord bot assistant for Danish Zwift Racers (DZR), a cycling club focused on virtual racing in Zwift.
+
+## Your Capabilities
+You can help users with:
+- Fetching rider statistics from Zwift/ZwiftPower (power data, race history, rankings)
+- Comparing multiple riders' performance side by side
+- Looking up and linking Zwift IDs to Discord accounts
+- Searching for riders by name
+- Finding event results
+- Providing information about DZR teams and race series
+- Answering questions using the admin-maintained knowledge base
+
+## Important Rules
+1. **ALWAYS use a tool call** when the user wants to take an action (fetch stats, link ID, search, etc.)
+2. **Respond conversationally** only for greetings, clarifying questions, or general chat
+3. When users mention Discord users with @ (like @Chris), **preserve the mention format** in your tool calls
+4. If you're unsure what the user wants, **ask for clarification** rather than guessing
+5. Before inventing answers about DZR teams or help topics, **check the knowledge base** or team data first
+
+## Response Style
+- Be friendly, helpful, and concise
+- Use occasional Danish phrases since this is a Danish cycling club (e.g., "Godt træk!", "Kør stærkt!")
+- When providing commentary about riders, be playful and use cycling metaphors
+- Avoid overly technical jargon unless the user asks for details
+
+## Current Context
+- User: ${message.author.username} (ID: ${message.author.id})
+- Server: ${serverName}
+- Time: ${timestamp}`;
+}
+
+/**
+ * Call OpenAI API with retry logic for rate limits
+ */
+async function callOpenAIWithRetry(params) {
+  const { maxRetries, retryDelayMs } = AI_CONFIG;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await openai.chat.completions.create(params);
+    } catch (error) {
+      const isRateLimit = error.code === 'rate_limit_exceeded' || error.status === 429;
+      const isLastAttempt = attempt === maxRetries;
+      
+      if (isRateLimit && !isLastAttempt) {
+        const delay = retryDelayMs * Math.pow(2, attempt); // Exponential backoff
+        console.log(`⏳ Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+}
+
+/**
  * Main handler for AI chat messages
  */
 async function handleAIChatMessage(message, client) {
   // Check if OpenAI is configured
   if (!openai) {
-    await message.reply("⚠️ AI chat is not configured. Please contact an administrator.");
-    return;
+    return; // Silently ignore if not configured
   }
   
   // Ignore bot messages
@@ -730,13 +855,13 @@ async function handleAIChatMessage(message, client) {
       .trim();
 
     if (!cleanedMessage) {
-      await message.reply("👋 Hello! I can help you with rider stats, team comparisons, and more. Just ask me something like:\n• Show me stats for @Chris\n• Compare @John, @Mike, and @Sarah\n• What's my Zwift ID?");
+      await message.reply("👋 Hej! I can help you with rider stats, team comparisons, and more. Just ask me something like:\n• Show me stats for @Chris\n• Compare @John, @Mike, and @Sarah\n• What's my Zwift ID?\n• Find riders named Anders");
       return;
     }
 
     // Shortcut: "mine stats" → use caller's linked ZwiftID directly
     const normalized = cleanedMessage.toLowerCase().replace(/[!?\.]+$/g, '').trim();
-    if (normalized === "mine stats") {
+    if (normalized === "mine stats" || normalized === "my stats") {
       const zwiftId = await getUserZwiftId(message.author.id);
       if (!zwiftId) {
         await message.reply("❌ Du har endnu ikke linket et ZwiftID. Brug `/my_zwiftid` eller send dit ZwiftID i den dedikerede kanal, så hjælper jeg dig videre.");
@@ -761,29 +886,11 @@ async function handleAIChatMessage(message, client) {
     let conversation = userConversations.get(userId);
 
     if (!conversation) {
-      // Initialize new conversation
+      // Initialize new conversation with dynamic system prompt
       conversation = [
         {
           role: "system",
-          content: `You are a helpful Discord bot assistant for a cycling club. You help users with:
-- Fetching rider statistics from Zwift/ZwiftPower
-- Comparing multiple riders' performance
-- Looking up and linking Zwift IDs to Discord accounts
-- Searching for riders and events
-
-You also have access to a small admin-maintained knowledge base ("Bot Knowledge") with short help articles and links.
-Before inventing answers, consider whether one of these articles is relevant and, if so, call the "get_help_article" function
-with a short topic keyword (e.g. "zwiftid", "membership", "notifications") to fetch it, then use its content in your answer.
-
-You also have structured access to Danish Zwift Racers (DZR) teams and race series derived from Discord role panels. When users ask about DZR teams
-(e.g. which teams exist, which teams are looking for riders, or teams in a specific series/division), call the "get_dzr_teams"
-function with appropriate filters (series, division, looking_for_riders) instead of guessing, and then base your answer on
-its returned data.
-
-When users mention Discord users with @ (like @Chris), preserve the mention format in your function calls.
-Be friendly, concise, and helpful. If you need to call a function, do so. If you can't help with something, politely explain why.
-
-Current user: ${message.author.username} (ID: ${message.author.id})`
+          content: buildSystemPrompt(message)
         }
       ];
     }
@@ -794,60 +901,65 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
       content: cleanedMessage
     });
     
-    // Trim conversation if too long
-    if (conversation.length > MAX_CONVERSATION_LENGTH) {
+    // Trim conversation if too long (keep system message)
+    if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
       conversation = [
         conversation[0], // Keep system message
-        ...conversation.slice(-MAX_CONVERSATION_LENGTH)
+        ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
       ];
     }
     
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Fast and cheap model
+    // Call OpenAI with retry logic
+    const response = await callOpenAIWithRetry({
+      model: AI_CONFIG.model,
       messages: conversation,
-      functions: functionDefinitions,
-      function_call: "auto",
-      temperature: 0.7,
-      max_tokens: 500
+      tools: toolDefinitions,
+      tool_choice: "auto",
+      temperature: AI_CONFIG.temperature,
+      max_tokens: AI_CONFIG.maxTokens
     });
     
-    const { message: responseMessage } = response.choices[0];
+    const responseMessage = response.choices[0].message;
     
-    // Check if ChatGPT wants to call a function
-    if (responseMessage.function_call) {
-      // Add assistant's function call to conversation
+    // Check if the model wants to call tools
+    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+      // Add assistant's message with tool calls to conversation
       conversation.push({
         role: "assistant",
-        content: responseMessage.content || "",
-        function_call: responseMessage.function_call
+        content: responseMessage.content || null,
+        tool_calls: responseMessage.tool_calls
       });
 
-      // Execute the command and capture result
-      const commandResult = await executeCommand(responseMessage.function_call, message);
-      const functionPayload = commandResult ?? { success: true };
+      // Execute all tool calls (parallel if multiple)
+      const toolResults = await executeToolCalls(responseMessage.tool_calls, message);
+      
+      // Add tool results to conversation
+      for (const result of toolResults) {
+        conversation.push({
+          role: "tool",
+          tool_call_id: result.tool_call_id,
+          content: JSON.stringify(result)
+        });
+      }
 
-      // Pass command result back into the conversation for model awareness
-      conversation.push({
-        role: "function",
-        name: responseMessage.function_call.name,
-        content: JSON.stringify(functionPayload)
-      });
+      // Check if we should generate a follow-up commentary
+      const hasStatsCall = responseMessage.tool_calls.some(
+        tc => tc.function.name === "rider_stats" || tc.function.name === "team_stats"
+      );
+      const allSuccessful = toolResults.every(r => r.success);
 
-      // Optionally get a follow-up response using the function output
-      const fnName = responseMessage.function_call.name;
-      const shouldGenerateFollowUp = functionPayload?.success && (fnName === "rider_stats" || fnName === "team_stats");
-
-      if (shouldGenerateFollowUp) {
-        if (conversation.length > MAX_CONVERSATION_LENGTH) {
+      if (hasStatsCall && allSuccessful) {
+        // Trim conversation before follow-up
+        if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
           conversation = [
             conversation[0],
-            ...conversation.slice(-MAX_CONVERSATION_LENGTH)
+            ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
           ];
         }
 
         try {
-          const prompt = fnName === "team_stats"
+          const isTeamStats = responseMessage.tool_calls.some(tc => tc.function.name === "team_stats");
+          const prompt = isTeamStats
             ? "Give a playful 1-3 sentence commentary comparing these riders. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists."
             : "Give a playful 1-3 sentence commentary about the rider. Use a light lyrical or pop-culture vibe if it fits, and feel free to exaggerate for humor. Do not include raw numbers or W/kg, and avoid bullet points or lists.";
 
@@ -856,10 +968,10 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
             { role: "user", content: prompt }
           ];
 
-          const followUp = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+          const followUp = await callOpenAIWithRetry({
+            model: AI_CONFIG.model,
             messages: followUpMessages,
-            temperature: 1.0,
+            temperature: 1.0, // Higher creativity for commentary
             max_tokens: 300
           });
 
@@ -872,30 +984,35 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
             });
 
             await message.reply(followUpMessage.content);
-          } else if (fnName === "rider_stats" && functionPayload?.rider) {
-            const fallback = buildRiderComment(functionPayload.rider);
-            if (fallback) {
-              conversation.push({ role: "assistant", content: fallback });
-              await message.reply(fallback);
-            }
-          } else if (fnName === "team_stats" && Array.isArray(functionPayload?.team)) {
-            const fallback = buildTeamComment(functionPayload.team);
-            if (fallback) {
-              conversation.push({ role: "assistant", content: fallback });
-              await message.reply(fallback);
+          } else {
+            // Fallback to heuristic commentary
+            const statsResult = toolResults.find(r => r.rider || r.team);
+            if (statsResult?.rider) {
+              const fallback = buildRiderComment(statsResult.rider);
+              if (fallback) {
+                conversation.push({ role: "assistant", content: fallback });
+                await message.reply(fallback);
+              }
+            } else if (statsResult?.team) {
+              const fallback = buildTeamComment(statsResult.team);
+              if (fallback) {
+                conversation.push({ role: "assistant", content: fallback });
+                await message.reply(fallback);
+              }
             }
           }
         } catch (followUpError) {
           console.error("Error generating follow-up AI response:", followUpError);
-          // Fallback to a minimal heuristic-based commentary
-          if (fnName === "rider_stats" && functionPayload?.rider) {
-            const fallback = buildRiderComment(functionPayload.rider);
+          // Fallback to heuristic commentary
+          const statsResult = toolResults.find(r => r.rider || r.team);
+          if (statsResult?.rider) {
+            const fallback = buildRiderComment(statsResult.rider);
             if (fallback) {
               conversation.push({ role: "assistant", content: fallback });
               await message.reply(fallback);
             }
-          } else if (fnName === "team_stats" && Array.isArray(functionPayload?.team)) {
-            const fallback = buildTeamComment(functionPayload.team);
+          } else if (statsResult?.team) {
+            const fallback = buildTeamComment(statsResult.team);
             if (fallback) {
               conversation.push({ role: "assistant", content: fallback });
               await message.reply(fallback);
@@ -904,7 +1021,7 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
         }
       }
     } else {
-      // ChatGPT responded conversationally (no function call)
+      // Model responded conversationally (no tool calls)
       conversation.push({
         role: "assistant",
         content: responseMessage.content
@@ -914,10 +1031,10 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
     }
     
     // Trim conversation if it has grown too long after processing
-    if (conversation.length > MAX_CONVERSATION_LENGTH) {
+    if (conversation.length > MAX_CONVERSATION_LENGTH + 1) {
       conversation = [
         conversation[0],
-        ...conversation.slice(-MAX_CONVERSATION_LENGTH)
+        ...conversation.slice(-(MAX_CONVERSATION_LENGTH))
       ];
     }
 
@@ -934,6 +1051,8 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
       await message.reply("⚠️ OpenAI API quota exceeded. Please contact an administrator.");
     } else if (error.code === 'invalid_api_key') {
       await message.reply("⚠️ OpenAI API key is invalid. Please contact an administrator.");
+    } else if (error.status === 429) {
+      await message.reply("⚠️ Too many requests. Please wait a moment and try again.");
     } else {
       await message.reply("⚠️ An error occurred while processing your message. Please try again.");
     }
@@ -942,6 +1061,6 @@ Current user: ${message.author.username} (ID: ${message.author.id})`
 
 module.exports = {
   handleAIChatMessage,
-  clearConversation // Export for testing/admin commands
+  clearConversation, // Export for testing/admin commands
+  AI_CONFIG // Export for external configuration if needed
 };
-

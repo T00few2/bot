@@ -11,7 +11,7 @@ Users can now interact with the bot using natural language by mentioning it:
 @YourBot what's my zwift id?
 ```
 
-The bot uses OpenAI's GPT-4o-mini to understand the request and execute the appropriate command.
+The bot uses OpenAI's GPT-4.1-mini (configurable) to understand the request and execute the appropriate command.
 
 ## Setup Instructions
 
@@ -40,7 +40,7 @@ Run this command in the `bot/` directory:
 npm install
 ```
 
-This will install the `openai` package (version 4.77.0).
+This will install the `openai` package (version 4.77.0+).
 
 ### 4. Restart Your Bot
 
@@ -90,6 +90,14 @@ The AI can understand natural language and execute these commands:
    - "Show results for 'DZR Team Race'"
    - "Find events matching 'Sunday'"
 
+9. **get_help_article** - Access knowledge base
+   - "How do I link my ZwiftID?"
+   - "What are the membership options?"
+
+10. **get_dzr_teams** - Get team information
+    - "Which teams are looking for riders?"
+    - "Show me the ZRL teams"
+
 ### Conversation Context
 
 The bot remembers your conversation for **30 minutes** or the **last 20 messages** (whichever comes first).
@@ -112,33 +120,69 @@ The AI chat works in **all channels** where the bot has access. Users just need 
 You can adjust these settings in `bot/handlers/aiChatHandler.js`:
 
 ```javascript
+// Conversation settings
 const CONVERSATION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const MAX_CONVERSATION_LENGTH = 20;          // 20 messages
+
+// AI Model Configuration
+const AI_CONFIG = {
+  model: "gpt-4.1-mini",  // Options: "gpt-4o-mini", "gpt-4.1-mini", "gpt-4o", "gpt-4.1"
+  temperature: 0.3,       // Lower = more deterministic (0.0-2.0)
+  maxTokens: 800,         // Maximum response length
+  maxRetries: 2,          // Retry attempts for rate limits
+  retryDelayMs: 2000,     // Base delay between retries (exponential backoff)
+};
 ```
 
-You can also change the OpenAI model (default is `gpt-4o-mini`):
+### Available Models
 
-```javascript
-model: "gpt-4o-mini", // Fast and cheap
-// or
-model: "gpt-4o",      // More powerful but more expensive
-```
+| Model | Best For | Speed | Cost |
+|-------|----------|-------|------|
+| `gpt-4o-mini` | Fast responses, basic tasks | ⚡⚡⚡ | $ |
+| `gpt-4.1-mini` | Better instruction following | ⚡⚡⚡ | $ |
+| `gpt-4o` | Complex reasoning | ⚡⚡ | $$$ |
+| `gpt-4.1` | Best accuracy, agentic tasks | ⚡⚡ | $$$ |
+
+**Default:** `gpt-4.1-mini` - Good balance of accuracy and cost.
 
 ## Cost Estimates
 
-Using `gpt-4o-mini` (recommended):
-- Input: $0.150 / 1M tokens (~$0.0001 per message)
-- Output: $0.600 / 1M tokens (~$0.0003 per message)
+Using `gpt-4o-mini` or `gpt-4.1-mini`:
+- Input: ~$0.15-0.40 / 1M tokens
+- Output: ~$0.60-1.60 / 1M tokens
 
-**Example:** 1,000 messages ≈ $0.40
+**Example:** 1,000 messages ≈ $0.40-1.00
 
-Using `gpt-4o`:
-- Input: $2.50 / 1M tokens (~$0.0015 per message)
-- Output: $10.00 / 1M tokens (~$0.005 per message)
+Using `gpt-4o` or `gpt-4.1`:
+- Input: ~$2.50-5.00 / 1M tokens
+- Output: ~$10.00-15.00 / 1M tokens
 
-**Example:** 1,000 messages ≈ $6.50
+**Example:** 1,000 messages ≈ $6.50-15.00
 
-💡 **Tip:** Start with `gpt-4o-mini` - it's fast, cheap, and works great for command routing!
+💡 **Tip:** Start with `gpt-4.1-mini` - it's fast, affordable, and has excellent instruction following!
+
+## Technical Improvements (v2.0)
+
+This version includes significant improvements:
+
+### Modern Tools API
+- Migrated from deprecated `functions` to `tools` API format
+- Better compatibility with newer OpenAI models
+- Support for parallel tool execution
+
+### Improved Accuracy
+- Lower temperature (0.3) for more deterministic function selection
+- Better system prompt with context and guidelines
+- Increased max_tokens (800) for more complete responses
+
+### Reliability
+- Automatic retry with exponential backoff for rate limits
+- Graceful error handling with user-friendly messages
+- Logging for debugging and analytics
+
+### Parallel Execution
+- Multiple tools can be called simultaneously when appropriate
+- Faster response times for complex queries
 
 ## Troubleshooting
 
@@ -170,6 +214,15 @@ Using `gpt-4o`:
 3. Update `.env` file with new key
 4. Restart bot
 
+### "Too many requests" Error
+
+**Problem:** Bot responds: `⚠️ Too many requests. Please wait a moment and try again.`
+
+**Solutions:**
+1. Wait a few seconds and retry
+2. The bot automatically retries with exponential backoff
+3. If persistent, check your OpenAI rate limits
+
 ### Bot Doesn't Respond
 
 **Problem:** You mention the bot but nothing happens.
@@ -179,6 +232,15 @@ Using `gpt-4o`:
 - ✅ Is the bot online?
 - ✅ Does the bot have message permissions in that channel?
 - ✅ Is OpenAI configured? (Check bot startup logs)
+
+### Wrong Function Called
+
+**Problem:** Bot calls the wrong command for your request.
+
+**Solutions:**
+1. Try being more specific in your request
+2. Lower the temperature in `AI_CONFIG` (e.g., 0.2)
+3. Consider using a more powerful model (e.g., `gpt-4o`)
 
 ## Testing
 
@@ -194,6 +256,8 @@ Test the AI chat with these examples:
 @YourBot what's my zwift id?
 
 @YourBot search for riders starting with "Chr"
+
+@YourBot which teams are looking for riders?
 ```
 
 ## Privacy & Data
@@ -202,6 +266,16 @@ Test the AI chat with these examples:
 - **Bot restart clears all conversations** - No persistent storage
 - **OpenAI processes messages** - Messages are sent to OpenAI's API
 - **Permanent data** - Only Zwift ID links are stored permanently in Firebase
+
+## Analytics & Logging
+
+The bot logs tool calls for debugging:
+
+```
+🤖 Executing tool: rider_stats { user: 'Chris#1234', guild: 'DZR', args: { zwiftid: '123456' } }
+```
+
+You can use these logs to understand usage patterns and improve the bot.
 
 ## Support
 
@@ -214,4 +288,3 @@ If you encounter issues:
 ---
 
 **Enjoy your AI-powered Discord bot!** 🤖🚴
-

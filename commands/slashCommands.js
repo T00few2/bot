@@ -1,6 +1,12 @@
 const { SlashCommandBuilder, PermissionsBitField } = require("discord.js");
 
 const commands = [
+  // refresh_club_roster (admin only)
+  new SlashCommandBuilder()
+    .setName("refresh_club_roster")
+    .setDescription("Refresh Zwift club roster and store it in Firestore (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
   // rider_stats
   new SlashCommandBuilder()
     .setName("rider_stats")

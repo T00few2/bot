@@ -176,10 +176,21 @@ function getRandomEmoji() {
   return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
+/**
+ * Refresh Zwift club roster in the backend (writes to Firestore)
+ */
+async function refreshClubRoster() {
+  const response = await axios.post(`${API_BASE_URL}/api/zwift/club/roster/refresh`, {}, {
+    headers: { Authorization: `Bearer ${API_KEY}` }
+  });
+  return response.data;
+}
+
 module.exports = {
   getWelcomeMessage,
   getDueScheduledMessages,
   getProbabilitySelectedMessages,
   markScheduledMessageSent,
   processMessageContent,
+  refreshClubRoster,
 }; 

@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent } = require("./contentApi");
+const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent, refreshClubRoster } = require("./contentApi");
 const { sweepGuildForNewMembers } = require("./newMemberService");
 const config = require("../config/config");
 const { getBotState, setBotState } = require("./firebase");
@@ -21,9 +21,53 @@ async function checkScheduledMessages(client) {
     await checkNewMemberSweeps(client);
     // Update KMS status message periodically
     await updateKmsStatus(client);
+
+    // Refresh Zwift club roster once per day (via backend Content API)
+    await checkClubRosterRefresh();
     
   } catch (error) {
     console.error("❌ Error checking scheduled messages:", error);
+  }
+}
+
+/**
+ * Refresh Zwift club roster once per day at a configured time (default 04:00 Europe/Paris).
+ * Uses bot_state to ensure we only run once per day even though scheduler ticks every minute.
+ */
+async function checkClubRosterRefresh() {
+  try {
+    const tz = process.env.CLUB_ROSTER_REFRESH_TZ || "Europe/Paris";
+    const targetHour = Number.parseInt(process.env.CLUB_ROSTER_REFRESH_HOUR || "4", 10);
+    const targetMinute = Number.parseInt(process.env.CLUB_ROSTER_REFRESH_MINUTE || "0", 10);
+
+    const now = new Date();
+    const local = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+    const hh = local.getHours();
+    const mm = local.getMinutes();
+
+    // Build YYYY-MM-DD in the target timezone (no UTC conversion)
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const todayKey = `${local.getFullYear()}-${pad2(local.getMonth() + 1)}-${pad2(local.getDate())}`;
+
+    // Only run during the exact minute
+    if (hh !== targetHour || mm !== targetMinute) return;
+
+    const stateKey = `club_roster_refresh_default`;
+    const existing = await getBotState(stateKey);
+    if (existing?.lastRunDate === todayKey) return;
+
+    console.log(`🔄 Refreshing Zwift club roster (tz=${tz}, date=${todayKey})...`);
+    const result = await refreshClubRoster();
+
+    await setBotState(stateKey, {
+      lastRunDate: todayKey,
+      lastResult: result || null,
+      updatedAt: new Date().toISOString(),
+    });
+
+    console.log("✅ Club roster refresh completed:", result);
+  } catch (error) {
+    console.error("❌ Error refreshing club roster:", error?.message || error);
   }
 }
 

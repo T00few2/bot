@@ -5,7 +5,7 @@ const { generateSingleRiderStatsImage, generateTeamStatsImage, generateEventResu
 const { getUserZwiftId, linkUserZwiftId, searchRidersByName, getTodaysClubStats } = require("../services/firebase");
 const { ephemeralReplyWithPublish } = require("../utils/ephemeralStore");
 const { generatePowerGraph } = require("../utils/powerGraph");
-const { getWelcomeMessage, processMessageContent } = require("../services/contentApi");
+const { getWelcomeMessage, processMessageContent, refreshClubRoster } = require("../services/contentApi");
 const { EmbedBuilder } = require("discord.js");
 const config = require("../config/config");
 const { checkVerificationAfterZwiftLink } = require("./memberHandler");
@@ -658,6 +658,26 @@ async function handleNewMembers(interaction) {
   }
 }
 
+async function handleRefreshClubRoster(interaction) {
+  try {
+    const result = await refreshClubRoster();
+    const summary =
+      `✅ Refreshed official club roster\n` +
+      `- fetched: **${result?.fetched ?? "?"}**\n` +
+      `- stored: **${result?.stored ?? "?"}**\n` +
+      `- deleted: **${result?.deleted ?? "?"}**\n` +
+      `- upserted: **${result?.upserted ?? "?"}**\n` +
+      `- syncedAt: **${result?.syncedAt ?? "?"}**`;
+
+    await interaction.editReply({ content: summary });
+  } catch (error) {
+    console.error("❌ refresh_club_roster Error:", error);
+    await interaction.editReply({
+      content: `⚠️ Error refreshing club roster: ${error?.message || "unknown error"}`,
+    });
+  }
+}
+
 module.exports = {
   handleMyZwiftId,
   handleSetZwiftId,
@@ -668,6 +688,7 @@ module.exports = {
   handleEventResults,
   handleWhoAmI,
   handleTestWelcome,
+  handleRefreshClubRoster,
   handleNewMembers,
   handlePostSignupBoard,
   handleRepostSignupBoard,

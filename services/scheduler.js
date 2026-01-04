@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent, refreshClubRoster } = require("./contentApi");
+const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMessageSent, processMessageContent, refreshClubRoster, refreshZwiftPowerRoster } = require("./contentApi");
 const { sweepGuildForNewMembers } = require("./newMemberService");
 const config = require("../config/config");
 const { getBotState, setBotState } = require("./firebase");
@@ -24,6 +24,9 @@ async function checkScheduledMessages(client) {
 
     // Refresh Zwift club roster once per day (via backend Content API)
     await checkClubRosterRefresh();
+
+    // Refresh ZwiftPower club roster once per day (via backend Content API)
+    await checkZwiftPowerRosterRefresh();
     
   } catch (error) {
     console.error("❌ Error checking scheduled messages:", error);
@@ -68,6 +71,45 @@ async function checkClubRosterRefresh() {
     console.log("✅ Club roster refresh completed:", result);
   } catch (error) {
     console.error("❌ Error refreshing club roster:", error?.message || error);
+  }
+}
+
+/**
+ * Refresh ZwiftPower club roster once per day at configured time.
+ * Defaults to the same schedule as the companion club roster refresh.
+ */
+async function checkZwiftPowerRosterRefresh() {
+  try {
+    const tz = process.env.ZWIFTPOWER_ROSTER_REFRESH_TZ || process.env.CLUB_ROSTER_REFRESH_TZ || "Europe/Paris";
+    const targetHour = Number.parseInt(process.env.ZWIFTPOWER_ROSTER_REFRESH_HOUR || process.env.CLUB_ROSTER_REFRESH_HOUR || "4", 10);
+    const targetMinute = Number.parseInt(process.env.ZWIFTPOWER_ROSTER_REFRESH_MINUTE || process.env.CLUB_ROSTER_REFRESH_MINUTE || "0", 10);
+
+    const now = new Date();
+    const local = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+    const hh = local.getHours();
+    const mm = local.getMinutes();
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const todayKey = `${local.getFullYear()}-${pad2(local.getMonth() + 1)}-${pad2(local.getDate())}`;
+
+    if (hh !== targetHour || mm !== targetMinute) return;
+
+    const stateKey = `zwiftpower_roster_refresh_default`;
+    const existing = await getBotState(stateKey);
+    if (existing?.lastRunDate === todayKey) return;
+
+    console.log(`🔄 Refreshing ZwiftPower club roster (tz=${tz}, date=${todayKey})...`);
+    const result = await refreshZwiftPowerRoster();
+
+    await setBotState(stateKey, {
+      lastRunDate: todayKey,
+      lastResult: result || null,
+      updatedAt: new Date().toISOString(),
+    });
+
+    console.log("✅ ZwiftPower roster refresh completed:", result);
+  } catch (error) {
+    console.error("❌ Error refreshing ZwiftPower roster:", error?.message || error);
   }
 }
 

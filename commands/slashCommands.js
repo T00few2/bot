@@ -7,6 +7,12 @@ const commands = [
     .setDescription("Refresh Zwift club roster and store it in Firestore (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
+  // refresh_zwiftpower_roster (admin only)
+  new SlashCommandBuilder()
+    .setName("refresh_zwiftpower_roster")
+    .setDescription("Refresh ZwiftPower club roster and store it in Firestore (admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
   // rider_stats
   new SlashCommandBuilder()
     .setName("rider_stats")

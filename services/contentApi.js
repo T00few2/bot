@@ -186,6 +186,16 @@ async function refreshClubRoster() {
   return response.data;
 }
 
+/**
+ * Refresh ZwiftPower club roster in the backend (writes to Firestore)
+ */
+async function refreshZwiftPowerRoster() {
+  const response = await axios.post(`${API_BASE_URL}/api/zwiftpower/club/roster/refresh`, {}, {
+    headers: { Authorization: `Bearer ${API_KEY}` }
+  });
+  return response.data;
+}
+
 module.exports = {
   getWelcomeMessage,
   getDueScheduledMessages,
@@ -193,4 +203,5 @@ module.exports = {
   markScheduledMessageSent,
   processMessageContent,
   refreshClubRoster,
+  refreshZwiftPowerRoster,
 }; 

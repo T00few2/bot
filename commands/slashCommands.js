@@ -13,6 +13,12 @@ const commands = [
     .setDescription("Refresh ZwiftPower club roster and store it in Firestore (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
+  // sync_zp_roles (admin only)
+  new SlashCommandBuilder()
+    .setName("sync_zp_roles")
+    .setDescription("Run ZwiftPower pace-group role assignment now (add-only, admin only)")
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
   // rider_stats
   new SlashCommandBuilder()
     .setName("rider_stats")

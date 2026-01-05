@@ -8,6 +8,7 @@ const { generatePowerGraph } = require("../utils/powerGraph");
 const { getWelcomeMessage, processMessageContent, refreshClubRoster, refreshZwiftPowerRoster } = require("../services/contentApi");
 const { EmbedBuilder } = require("discord.js");
 const config = require("../config/config");
+const { syncZpRolesForGuild } = require("../services/zpRoleSync");
 const { checkVerificationAfterZwiftLink } = require("./memberHandler");
 const { MessageFlags } = require("discord.js");
 const { postSignupBoard, repostSignupBoard } = require("../services/signupService");
@@ -698,6 +699,45 @@ async function handleRefreshZwiftPowerRoster(interaction) {
   }
 }
 
+async function handleSyncZpRoles(interaction) {
+  try {
+    // Admin-only guard (also enforced at command registration time)
+    if (!interaction.member.permissions.has("Administrator") && !interaction.member.permissions.has("ADMINISTRATOR")) {
+      await interaction.editReply({ content: "❌ This command is for administrators only." });
+      return;
+    }
+
+    const hasAnyRoleConfig = !!(config.zpRoles?.A || config.zpRoles?.B || config.zpRoles?.C || config.zpRoles?.D);
+    if (!hasAnyRoleConfig) {
+      await interaction.editReply({
+        content:
+          "❌ ZP pace roles are not configured.\n\n" +
+          "Set these env vars (Discord role IDs): `ZP_ROLE_D`, `ZP_ROLE_C`, `ZP_ROLE_B`, `ZP_ROLE_A` (A/A+).",
+      });
+      return;
+    }
+
+    await interaction.editReply({ content: "⏳ Running ZP pace-group role assignment now (add-only)..." });
+
+    const result = await syncZpRolesForGuild(interaction.guild);
+
+    const summary =
+      `✅ ZP pace-group role sync finished\n` +
+      `- latest club_stats doc: **${result?.latestDocId ?? "?"}**\n` +
+      `- snapshot timestamp: **${result?.latestTimestamp ?? "?"}**\n` +
+      `- added roles: **${result?.added ?? 0}**\n` +
+      `- skipped: **${result?.skipped ?? 0}**\n` +
+      `- errors: **${result?.errors ?? 0}**`;
+
+    await interaction.editReply({ content: summary });
+  } catch (error) {
+    console.error("❌ sync_zp_roles Error:", error);
+    await interaction.editReply({
+      content: `⚠️ Error syncing ZP roles: ${error?.message || "unknown error"}`,
+    });
+  }
+}
+
 module.exports = {
   handleMyZwiftId,
   handleSetZwiftId,
@@ -710,6 +750,7 @@ module.exports = {
   handleTestWelcome,
   handleRefreshClubRoster,
   handleRefreshZwiftPowerRoster,
+  handleSyncZpRoles,
   handleNewMembers,
   handlePostSignupBoard,
   handleRepostSignupBoard,

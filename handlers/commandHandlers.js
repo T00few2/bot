@@ -721,13 +721,25 @@ async function handleSyncZpRoles(interaction) {
 
     const result = await syncZpRolesForGuild(interaction.guild);
 
+    const reasons = result?.skippedReasons || {};
+    const totals = result?.totals || {};
     const summary =
       `✅ ZP pace-group role sync finished\n` +
       `- latest club_stats doc: **${result?.latestDocId ?? "?"}**\n` +
       `- snapshot timestamp: **${result?.latestTimestamp ?? "?"}**\n` +
+      `- linked users: **${totals?.linkedUsers ?? "?"}**\n` +
+      `- riders w/ category in snapshot: **${totals?.clubStatsRidersWithCategory ?? "?"}**\n` +
       `- added roles: **${result?.added ?? 0}**\n` +
       `- skipped: **${result?.skipped ?? 0}**\n` +
-      `- errors: **${result?.errors ?? 0}**`;
+      `- errors: **${result?.errors ?? 0}**\n\n` +
+      `**Skipped breakdown**\n` +
+      `- already had role: **${reasons?.alreadyHasRole ?? 0}**\n` +
+      `- linked zwiftId not in latest club_stats: **${reasons?.notInClubStats ?? 0}**\n` +
+      `- role not configured (missing env for that category): **${reasons?.roleNotConfigured ?? 0}**\n` +
+      `- role id not found in guild: **${reasons?.roleNotFound ?? 0}**\n` +
+      `- member not found in guild: **${reasons?.memberNotFound ?? 0}**\n` +
+      `- unknown/missing category: **${reasons?.unknownCategory ?? 0}**\n` +
+      `- bot user / invalid ids: **${(reasons?.isBot ?? 0) + (reasons?.missingIds ?? 0)}**`;
 
     await interaction.editReply({ content: summary });
   } catch (error) {

@@ -58,42 +58,65 @@ async function syncZpRolesForGuild(guild) {
   let added = 0;
   let skipped = 0;
   let errors = 0;
+  const skippedReasons = {
+    missingIds: 0,          // missing discordId/zwiftId in users collection
+    notInClubStats: 0,      // linked zwiftId not found in latest club_stats snapshot
+    unknownCategory: 0,     // zpCategory missing or not D/C/B/A/A+
+    roleNotConfigured: 0,   // category mapped but env role id missing
+    roleNotFound: 0,        // configured role id does not exist in guild
+    memberNotFound: 0,      // user not in guild (left/kicked) or fetch failed
+    isBot: 0,               // linked record points to a bot user
+    alreadyHasRole: 0,      // role already present
+    roleNotManageable: 0,   // role higher/equal to bot's highest role
+  };
 
   for (const u of linked) {
     try {
       const discordId = normalizeId(u.discordId);
       const zwiftId = normalizeId(u.zwiftId);
       if (!discordId || !zwiftId) {
+        skippedReasons.missingIds++;
         skipped++;
         continue;
       }
 
       const cat = riderCategoryByZwiftId.get(zwiftId);
+      if (!cat) {
+        skippedReasons.notInClubStats++;
+        skipped++;
+        continue;
+      }
       const roleId = roleIdForCategory(cat);
-      if (!cat || !roleId) {
+      if (!roleId) {
+        skippedReasons.roleNotConfigured++;
         skipped++;
         continue;
       }
 
       const role = await guild.roles.fetch(roleId).catch(() => null);
       if (!role) {
+        skippedReasons.roleNotFound++;
         skipped++;
         continue;
       }
 
       if (role.position >= botTopPosition) {
         // Can't manage this role; don't fail whole run.
+        skippedReasons.roleNotManageable++;
         errors++;
         continue;
       }
 
       const member = await guild.members.fetch(discordId).catch(() => null);
       if (!member || member.user?.bot) {
+        if (!member) skippedReasons.memberNotFound++;
+        else skippedReasons.isBot++;
         skipped++;
         continue;
       }
 
       if (member.roles.cache.has(roleId)) {
+        skippedReasons.alreadyHasRole++;
         skipped++;
         continue;
       }
@@ -111,6 +134,11 @@ async function syncZpRolesForGuild(guild) {
     added,
     skipped,
     errors,
+    skippedReasons,
+    totals: {
+      linkedUsers: linked.length,
+      clubStatsRidersWithCategory: riderCategoryByZwiftId.size,
+    },
     latestDocId: latest.id,
     latestTimestamp: latest.timestamp || null,
   };

@@ -3,6 +3,7 @@ const { getDueScheduledMessages, getProbabilitySelectedMessages, markScheduledMe
 const { sweepGuildForNewMembers } = require("./newMemberService");
 const config = require("../config/config");
 const { getBotState, setBotState } = require("./firebase");
+const { syncZpRolesForGuild } = require("./zpRoleSync");
 
 /**
  * Check for and send scheduled messages (both time-based and probability-based)
@@ -27,9 +28,64 @@ async function checkScheduledMessages(client) {
 
     // Refresh ZwiftPower club roster once per day (via backend Content API)
     await checkZwiftPowerRosterRefresh();
+
+    // Assign ZwiftPower pace-group roles once per day (add-only)
+    await checkZpRoleSync(client);
     
   } catch (error) {
     console.error("❌ Error checking scheduled messages:", error);
+  }
+}
+
+/**
+ * Assign ZP pace-group roles once per day at configured time.
+ * Add-only: we never remove roles; users can self-remove older pace roles.
+ */
+async function checkZpRoleSync(client) {
+  try {
+    const tz = config.zpRoleSync?.tz || "Europe/Paris";
+    const targetHour = Number.isFinite(config.zpRoleSync?.hour) ? config.zpRoleSync.hour : 4;
+    const targetMinute = Number.isFinite(config.zpRoleSync?.minute) ? config.zpRoleSync.minute : 5;
+
+    const now = new Date();
+    const local = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+    const hh = local.getHours();
+    const mm = local.getMinutes();
+    if (hh !== targetHour || mm !== targetMinute) return;
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const todayKey = `${local.getFullYear()}-${pad2(local.getMonth() + 1)}-${pad2(local.getDate())}`;
+
+    // Run per guild, once per day.
+    for (const guild of client.guilds.cache.values()) {
+      const stateKey = `zp_role_sync_${guild.id}`;
+      const existing = await getBotState(stateKey);
+      if (existing?.lastRunDate === todayKey) continue;
+
+      // If no role IDs configured, don't spam logs every day; just store a state marker.
+      const hasAnyRoleConfig = !!(config.zpRoles?.A || config.zpRoles?.B || config.zpRoles?.C || config.zpRoles?.D);
+      if (!hasAnyRoleConfig) {
+        await setBotState(stateKey, {
+          lastRunDate: todayKey,
+          lastResult: { ok: false, reason: "missing_role_config" },
+          updatedAt: new Date().toISOString(),
+        });
+        continue;
+      }
+
+      console.log(`🔄 Syncing ZP pace roles for guild ${guild.name} (${guild.id})...`);
+      const result = await syncZpRolesForGuild(guild);
+
+      await setBotState(stateKey, {
+        lastRunDate: todayKey,
+        lastResult: result || null,
+        updatedAt: new Date().toISOString(),
+      });
+
+      console.log("✅ ZP pace role sync completed:", result);
+    }
+  } catch (error) {
+    console.error("❌ Error syncing ZP pace roles:", error?.message || error);
   }
 }
 

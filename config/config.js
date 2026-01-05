@@ -8,6 +8,20 @@ module.exports = {
     welcomeChannelId: process.env.DISCORD_WELCOME_CHANNEL_ID, // Optional: specific welcome channel
     approvalChannelId: process.env.DISCORD_APPROVAL_CHANNEL_ID, // Optional: channel for role approval requests
   },
+  zpRoles: {
+    // ZwiftPower Pace Group roles (Discord role IDs)
+    // Map ZP categories -> Discord roles. A and A+ typically share one "A/A+" role.
+    D: process.env.ZP_ROLE_D || null,
+    C: process.env.ZP_ROLE_C || null,
+    B: process.env.ZP_ROLE_B || null,
+    A: process.env.ZP_ROLE_A || null,
+  },
+  zpRoleSync: {
+    // Daily sync schedule (defaults: 07:00 Europe/Paris)
+    tz: process.env.ZP_ROLE_SYNC_TZ || "Europe/Paris",
+    hour: Number.parseInt(process.env.ZP_ROLE_SYNC_HOUR || "7", 10),
+    minute: Number.parseInt(process.env.ZP_ROLE_SYNC_MINUTE || "0", 10),
+  },
   kms: {
     channelId: process.env.KMS_CHANNEL_ID, // Discord channel ID for Klubmesterskab updates
     roleId: process.env.KMS_ROLE_ID || '1413793742808416377', // Klubmesterskab role ID

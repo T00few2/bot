@@ -62,6 +62,43 @@ async function getTodaysClubStats() {
 }
 
 /**
+ * Get latest club_stats document (by timestamp desc).
+ * Useful when today's snapshot isn't present yet.
+ *
+ * Returns: { id, timestamp, clubId, riders } | null
+ */
+async function getLatestClubStats() {
+  const snap = await db.collection("club_stats").orderBy("timestamp", "desc").limit(1).get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  const raw = doc.data() || {};
+  const riders = Array.isArray(raw?.data?.riders) ? raw.data.riders : [];
+  return {
+    id: doc.id,
+    timestamp: raw.timestamp || null,
+    clubId: raw.clubId || raw?.data?.clubId || null,
+    riders,
+  };
+}
+
+/**
+ * Get all linked Discord users with a ZwiftID.
+ * Returns: Array<{ discordId, zwiftId }>
+ */
+async function getAllLinkedUsers() {
+  const snap = await db.collection("users").get();
+  if (snap.empty) return [];
+  const out = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    const zwiftId = data.zwiftId;
+    if (zwiftId === null || zwiftId === undefined || zwiftId === "") continue;
+    out.push({ discordId: doc.id, zwiftId });
+  }
+  return out;
+}
+
+/**
  * Search for riders by name prefix
  */
 async function searchRidersByName(searchTerm) {
@@ -187,6 +224,8 @@ module.exports = {
   getUserZwiftId,
   linkUserZwiftId,
   getTodaysClubStats,
+  getLatestClubStats,
+  getAllLinkedUsers,
   searchRidersByName,
   getBotState,
   setBotState,

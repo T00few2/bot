@@ -65,6 +65,19 @@ async function handleAutocomplete(interaction) {
       ).slice(0, 25); // Discord limits to 25 options
 
       await interaction.respond(filtered);
+    } else if (focusedOption.name === 'config_id') {
+      const { getSignupBoardConfigs } = require("../services/firebase");
+      const configs = await getSignupBoardConfigs();
+      
+      const filtered = configs
+        .filter(c => c.title.toLowerCase().includes(focusedOption.value.toLowerCase()) || c.id.includes(focusedOption.value))
+        .map(c => ({
+          name: c.title.slice(0, 100), // Discord name limit
+          value: c.id
+        }))
+        .slice(0, 25);
+        
+      await interaction.respond(filtered);
     } else {
       // Default empty response for unhandled autocomplete options
       await interaction.respond([]);

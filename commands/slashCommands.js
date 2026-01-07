@@ -301,8 +301,9 @@ const commands = [
     .addStringOption(option =>
       option
         .setName("config_id")
-        .setDescription("ID of the signup board configuration to use (optional, defaults to ZRL)")
+        .setDescription("Search for a board by title (or paste ID)")
         .setRequired(false)
+        .setAutocomplete(true)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 

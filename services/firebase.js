@@ -219,6 +219,19 @@ async function getAllBotKnowledge() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+/**
+ * Get all signup board configurations
+ */
+async function getSignupBoardConfigs() {
+  const snap = await db.collection("signup_board_configs").get();
+  if (snap.empty) return [];
+  
+  return snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+}
+
 module.exports = {
   db,
   getUserZwiftId,
@@ -233,4 +246,5 @@ module.exports = {
   getDZRTeamsAndSeries,
   getBotKnowledge,
   getAllBotKnowledge,
+  getSignupBoardConfigs,
 }; 

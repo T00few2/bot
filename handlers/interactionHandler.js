@@ -214,6 +214,13 @@ async function handleInteractions(interaction) {
       return;
     }
 
+    // Handle signup board buttons
+    if (interaction.isButton() && interaction.customId.startsWith("signup_")) {
+        const { handleSignupButton } = require("../services/signupService");
+        await handleSignupButton(interaction);
+        return;
+    }
+
     // Handle role toggle buttons
     if (interaction.isButton() && interaction.customId.startsWith("role_toggle_")) {
       const parts = interaction.customId.split("_");

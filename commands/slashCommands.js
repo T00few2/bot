@@ -291,11 +291,17 @@ const commands = [
   // Team signup board commands
   new SlashCommandBuilder()
     .setName("post_signup_board")
-    .setDescription("Post an A/B/C/D team signup board in a channel (admin only)")
+    .setDescription("Post a signup board in a channel (admin only)")
     .addChannelOption(option =>
       option
         .setName("channel")
         .setDescription("Channel to post the signup board (defaults to current)")
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option
+        .setName("config_id")
+        .setDescription("ID of the signup board configuration to use (optional, defaults to ZRL)")
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),

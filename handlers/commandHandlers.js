@@ -569,11 +569,13 @@ async function handlePostSignupBoard(interaction) {
       return;
     }
     const channel = interaction.options.getChannel("channel") || interaction.channel;
+    const configId = interaction.options.getString("config_id");
+
     if (!channel || channel.type !== 0 && channel.type !== 5 && channel.type !== 15) { // GuildText, Announcement, Forum ignored
       await interaction.editReply({ content: "❌ Please specify a text channel." });
       return;
     }
-    const { message } = await postSignupBoard(channel);
+    const { message } = await postSignupBoard(channel, configId);
     await interaction.editReply({ content: `✅ Signup board posted in <#${channel.id}> (message ${message.id}).` });
   } catch (error) {
     console.error("❌ post_signup_board Error:", error);

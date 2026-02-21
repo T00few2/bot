@@ -354,20 +354,18 @@ class RoleService {
 
     // Fetch all team captains to ensure consistent username display
     const teamCaptains = new Map();
+    
+    // Group all captains to fetch them efficiently
     for (const role of roles) {
-      if (role.teamCaptainId) {
+      if (role.teamCaptainId && !teamCaptains.has(role.teamCaptainId)) {
         try {
-          // Force fetch the member to ensure it's in cache
-          const member = await panelConfig.guild.members.fetch(role.teamCaptainId, { force: true });
+          // Fetch the member if not already in cache. Using force: false to leverage pre-fetch.
+          const member = await panelConfig.guild.members.fetch(role.teamCaptainId, { force: false });
           
-          // Double-check that the member was successfully fetched
           if (member && member.user) {
             // Use both mention formats to maximize compatibility
-            // The !userID format prioritizes nicknames, regular format is fallback
             const mention = `<@!${role.teamCaptainId}>`;
             teamCaptains.set(role.teamCaptainId, mention);
-            
-            // Log for debugging
             console.log(`✅ Successfully fetched team captain: ${member.displayName || member.user.username} (${role.teamCaptainId})`);
           } else {
             throw new Error("Member fetch returned null/undefined");
@@ -381,9 +379,9 @@ class RoleService {
             teamCaptains.set(role.teamCaptainId, `<@!${role.teamCaptainId}>`);
             console.log(`✅ Using cached member for team captain: ${cachedMember.displayName || cachedMember.user.username}`);
           } else {
-            // Final fallback - use basic mention (will show as ID if not resolvable)
+            // Final fallback - use basic mention
             teamCaptains.set(role.teamCaptainId, `<@${role.teamCaptainId}>`);
-            console.log(`⚠️ Using basic mention for team captain ${role.teamCaptainId} - may display as ID`);
+            console.log(`⚠️ Using basic mention for team captain ${role.teamCaptainId}`);
           }
         }
       }
@@ -480,6 +478,29 @@ class RoleService {
       }
 
       components.push(row);
+    }
+
+    // Safety check: Discord content has 2000 character limit
+    // If we're getting close, switch to an embed which allows 4096 in description
+    if (messageContent.length > 1900) {
+      console.log(`⚠️ Panel content length (${messageContent.length}) is near limits. Switching to Embed format.`);
+      
+      const embed = new EmbedBuilder()
+        .setTitle(`🔑 ${panelConfig.name}`)
+        .setColor(0x5865F2);
+      
+      // Remove the main header from the content as it becomes the embed title
+      let embedDescription = messageContent.replace(`# 🔑 ${panelConfig.name}\n\n`, "");
+      
+      // Check for Embed description limit (4096)
+      if (embedDescription.length > 4096) {
+        console.warn(`🚨 Panel still too large for embed description (${embedDescription.length}). Truncating.`);
+        embedDescription = embedDescription.substring(0, 4090) + "...";
+      }
+      
+      embed.setDescription(embedDescription);
+      
+      return { content: "", embeds: [embed], components };
     }
 
     return { content: messageContent, components };

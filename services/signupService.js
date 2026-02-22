@@ -205,18 +205,25 @@ async function repostSignupBoard(channel, configId = null) {
 
   if (configId) {
     // Search for the latest board in this channel with this specific config
+    // We remove the .orderBy() to avoid the requirement for a composite index
     const snap = await db.collection("signup_boards")
       .where("guildId", "==", guildId)
       .where("channelId", "==", channel.id)
       .where("configId", "==", configId)
-      .orderBy("updatedAt", "desc")
-      .limit(1)
       .get();
 
     if (snap.empty) {
       throw new Error(`No existing signup board with config '${configId}' found for this channel.`);
     }
-    boardId = snap.docs[0].id;
+
+    // Sort in memory to avoid needing a manual Firestore index
+    const sortedDocs = snap.docs.sort((a, b) => {
+      const aTime = a.data().updatedAt || 0;
+      const bTime = b.data().updatedAt || 0;
+      return bTime - aTime;
+    });
+
+    boardId = sortedDocs[0].id;
   } else {
     // Fallback to absolute latest board in the channel
     const state = await getBotState(`signup_board_latest:${guildId}:${channel.id}`);

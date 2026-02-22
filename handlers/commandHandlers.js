@@ -24,7 +24,7 @@ async function handleMyZwiftId(interaction) {
       await linkUserZwiftId(discordID, username, zwiftID);
       const content = `✅ Your ZwiftID (${zwiftID}) is now linked to your Discord ID!`;
       await ephemeralReplyWithPublish(interaction, content);
-      
+
       // Check verification status after linking ZwiftID
       await checkVerificationAfterZwiftLink(interaction.guild, discordID);
     } catch (error) {
@@ -79,7 +79,7 @@ async function handleSetZwiftId(interaction) {
       await linkUserZwiftId(targetUser.id, targetUser.username, directZwiftId);
       const content = `✅ Linked ZwiftID **${directZwiftId}** to ${targetUser.username}.`;
       await ephemeralReplyWithPublish(interaction, content);
-      
+
       // Check verification status after linking ZwiftID
       await checkVerificationAfterZwiftLink(interaction.guild, targetUser.id);
     } catch (error) {
@@ -128,12 +128,12 @@ async function handleGetZwiftId(interaction) {
   try {
     const targetUser = interaction.options.getUser("discorduser");
     const zwiftId = await getUserZwiftId(targetUser.id);
-    
+
     if (!zwiftId) {
       await ephemeralReplyWithPublish(
         interaction,
         `❌ ${targetUser.username} has not linked a ZwiftID yet.\n\n` +
-          `Tell them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
+        `Tell them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
       );
       return;
     }
@@ -280,7 +280,7 @@ async function handleTeamStats(interaction) {
         await ephemeralReplyWithPublish(
           interaction,
           `❌ **${userObj.username}** has not linked a ZwiftID yet!\n\n` +
-            `Ask them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
+          `Ask them to DM me their ZwiftID (numbers only) or the first 3+ letters of their Zwift name, and I’ll link it for them.`
         );
         return;
       }
@@ -424,7 +424,7 @@ async function handleEventResults(interaction) {
 
     const imageBuffer = await generateEventResultsImage(data.filtered_events);
     const attachment = new AttachmentBuilder(imageBuffer, { name: "event_results.png" });
-    
+
     await ephemeralReplyWithPublish(interaction, `Event Results for "${searchTerm}"`, [attachment]);
   } catch (error) {
     console.error("❌ event_results Error:", error);
@@ -435,12 +435,12 @@ async function handleEventResults(interaction) {
 async function handleWhoAmI(interaction) {
   try {
     const zwiftId = await getUserZwiftId(interaction.user.id);
-    
+
     if (!zwiftId) {
       await ephemeralReplyWithPublish(
         interaction,
         "❌ You haven't linked a ZwiftID yet.\n\n" +
-          "Just reply here with your ZwiftID (numbers only) or the first 3+ letters of your Zwift name, and I’ll link it for you."
+        "Just reply here with your ZwiftID (numbers only) or the first 3+ letters of your Zwift name, and I’ll link it for you."
       );
       return;
     }
@@ -456,13 +456,13 @@ async function handleWhoAmI(interaction) {
 async function handleTestWelcome(interaction) {
   try {
     const targetUser = interaction.options.getUser("target_user") || interaction.user;
-    
+
     // Check if user has admin permissions (moved after defer to prevent timeout)
     if (!interaction.member.permissions.has('ADMINISTRATOR')) {
       await interaction.editReply({ content: "❌ This command is for administrators only." });
       return;
     }
-    
+
     // Get welcome message from API
     const welcomeMessage = await getWelcomeMessage();
     if (!welcomeMessage) {
@@ -530,10 +530,10 @@ async function handleTestWelcome(interaction) {
 
     // Send test message to current channel (where command was executed)
     const testChannel = interaction.channel;
-    
+
     if (!testChannel) {
-      await interaction.editReply({ 
-        content: "❌ Could not determine current channel for test message." 
+      await interaction.editReply({
+        content: "❌ Could not determine current channel for test message."
       });
       return;
     }
@@ -546,14 +546,14 @@ async function handleTestWelcome(interaction) {
 
     // Send test welcome message to current channel
     await testChannel.send(testMessageOptions);
-    
+
     // Get info about the real welcome channel for comparison
     const realWelcomeChannelId = config.discord.welcomeChannelId || interaction.guild.systemChannelId;
     const realWelcomeChannel = realWelcomeChannelId ? interaction.guild.channels.cache.get(realWelcomeChannelId) : null;
     const welcomeChannelInfo = realWelcomeChannel ? `#${realWelcomeChannel.name}` : "system channel or first available channel";
-    
-    await interaction.editReply({ 
-      content: `✅ Test welcome message sent to this channel!\n\n📍 **Note:** Real welcome messages will be sent to ${welcomeChannelInfo} when new members join.` 
+
+    await interaction.editReply({
+      content: `✅ Test welcome message sent to this channel!\n\n📍 **Note:** Real welcome messages will be sent to ${welcomeChannelInfo} when new members join.`
     });
 
   } catch (error) {
@@ -590,11 +590,12 @@ async function handleRepostSignupBoard(interaction) {
       return;
     }
     const channel = interaction.options.getChannel("channel") || interaction.channel;
+    const configId = interaction.options.getString("config_id");
     if (!channel || channel.type !== 0 && channel.type !== 5 && channel.type !== 15) {
       await interaction.editReply({ content: "❌ Please specify a text channel." });
       return;
     }
-    const { message } = await repostSignupBoard(channel);
+    const { message } = await repostSignupBoard(channel, configId);
     await interaction.editReply({ content: `✅ Signup board reposted in <#${channel.id}> (message ${message.id}).` });
   } catch (error) {
     console.error("❌ repost_signup_board Error:", error);

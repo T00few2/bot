@@ -190,7 +190,7 @@ const commands = [
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-  
+
   // Legacy self-role management commands (for backward compatibility)
   new SlashCommandBuilder()
     .setName("setup_roles")
@@ -202,7 +202,7 @@ const commands = [
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("add_selfrole")
     .setDescription("Add a role to the default role panel (admin only)")
@@ -225,7 +225,7 @@ const commands = [
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("remove_selfrole")
     .setDescription("Remove a role from the default role panel (admin only)")
@@ -235,7 +235,7 @@ const commands = [
         .setDescription("The role to remove from self-selection")
         .setRequired(true)
     ),
-    
+
   // Verification system commands
   new SlashCommandBuilder()
     .setName("setup_verification")
@@ -267,7 +267,7 @@ const commands = [
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("verification_status")
     .setDescription("Check verification status for yourself or another user")
@@ -277,12 +277,12 @@ const commands = [
         .setDescription("User to check verification status for (optional)")
         .setRequired(false)
     ),
-    
+
   new SlashCommandBuilder()
     .setName("process_verification")
     .setDescription("Manually process verification for all server members (admin only)")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("disable_verification")
     .setDescription("Disable the auto-verification system (admin only)")
@@ -309,15 +309,22 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("repost_signup_board")
-    .setDescription("Repost the latest A/B/C/D signup board for this channel (admin only)")
+    .setDescription("Repost a signup board for this channel with current signups (admin only)")
     .addChannelOption(option =>
       option
         .setName("channel")
         .setDescription("Channel to repost the signup board (defaults to current)")
         .setRequired(false)
     )
+    .addStringOption(option =>
+      option
+        .setName("config_id")
+        .setDescription("Optional: Choose a specific board template to repost")
+        .setRequired(false)
+        .setAutocomplete(true)
+    )
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-    
+
   new SlashCommandBuilder()
     .setName("roles_panel")
     .setDescription("Create/update the default role selection panel (admin only)")

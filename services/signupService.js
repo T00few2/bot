@@ -204,20 +204,23 @@ async function repostSignupBoard(channel, configId = null) {
   let boardId = null;
 
   if (configId) {
-    // Search for the latest board in this channel with this specific config
-    // We remove the .orderBy() to avoid the requirement for a composite index
+    // Ultra-safe query: only filter by guildId to avoid ANY composite index requirements
     const snap = await db.collection("signup_boards")
       .where("guildId", "==", guildId)
-      .where("channelId", "==", channel.id)
-      .where("configId", "==", configId)
       .get();
 
-    if (snap.empty) {
+    // Filter by channelId and configId in memory
+    const matchingDocs = snap.docs.filter(doc => {
+      const data = doc.data();
+      return data.channelId === channel.id && data.configId === configId;
+    });
+
+    if (matchingDocs.length === 0) {
       throw new Error(`No existing signup board with config '${configId}' found for this channel.`);
     }
 
-    // Sort in memory to avoid needing a manual Firestore index
-    const sortedDocs = snap.docs.sort((a, b) => {
+    // Sort in memory
+    const sortedDocs = matchingDocs.sort((a, b) => {
       const aTime = a.data().updatedAt || 0;
       const bTime = b.data().updatedAt || 0;
       return bTime - aTime;

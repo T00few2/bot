@@ -59,7 +59,7 @@ async function handleAutocomplete(interaction) {
 
     if (focusedOption.name === 'panel_id') {
       const panels = await roleService.getPanelAutocompleteOptions(interaction.guild.id);
-      const filtered = panels.filter(panel => 
+      const filtered = panels.filter(panel =>
         panel.name.toLowerCase().includes(focusedOption.value.toLowerCase()) ||
         panel.value.toLowerCase().includes(focusedOption.value.toLowerCase())
       ).slice(0, 25); // Discord limits to 25 options
@@ -68,7 +68,7 @@ async function handleAutocomplete(interaction) {
     } else if (focusedOption.name === 'config_id') {
       const { getSignupBoardConfigs } = require("../services/firebase");
       const configs = await getSignupBoardConfigs();
-      
+
       const filtered = configs
         .filter(c => c.title.toLowerCase().includes(focusedOption.value.toLowerCase()) || c.id.includes(focusedOption.value))
         .map(c => ({
@@ -76,7 +76,7 @@ async function handleAutocomplete(interaction) {
           value: c.id
         }))
         .slice(0, 25);
-        
+
       await interaction.respond(filtered);
     } else {
       // Default empty response for unhandled autocomplete options
@@ -100,19 +100,19 @@ async function handleSelectMenus(interaction) {
     try {
       const [selectedValue] = interaction.values;
       await interaction.deferUpdate();
-      
+
       const allRiders = await getTodaysClubStats();
       if (!allRiders) {
         await interaction.editReply("❌ No club_stats found for today.");
         return;
       }
-      
+
       const chosen = allRiders.find(r => r.riderId === parseInt(selectedValue));
       if (!chosen) {
         await interaction.editReply("❌ Could not find that rider in today's list!");
         return;
       }
-      
+
       const content = `**${chosen.name}** has ZwiftID: **${chosen.riderId}**`;
       await ephemeralReplyWithPublish(interaction, content);
     } catch (error) {
@@ -122,19 +122,19 @@ async function handleSelectMenus(interaction) {
       }
     }
     return;
-  } 
-  
+  }
+
   if (interaction.customId === "myzwift_select") {
     try {
       const [selectedValue] = interaction.values;
       await interaction.deferUpdate();
       const discordID = interaction.user.id;
       const username = interaction.user.username;
-      
+
       await linkUserZwiftId(discordID, username, selectedValue);
       const content = `✅ You have selected rider ZwiftID: **${selectedValue}**. It is now linked to your Discord profile!`;
       await ephemeralReplyWithPublish(interaction, content);
-      
+
       // Check verification status after linking ZwiftID
       const { checkVerificationAfterZwiftLink } = require("./memberHandler");
       await checkVerificationAfterZwiftLink(interaction.guild, discordID);
@@ -145,8 +145,8 @@ async function handleSelectMenus(interaction) {
       }
     }
     return;
-  } 
-  
+  }
+
   if (interaction.customId.startsWith("setzwift_select_")) {
     try {
       // Custom select for /set_zwiftid command: customId format: setzwift_select_<targetUserId>
@@ -154,12 +154,12 @@ async function handleSelectMenus(interaction) {
       const targetUserId = parts[2];
       const [selectedValue] = interaction.values;
       await interaction.deferUpdate();
-      
+
       const targetUser = await interaction.client.users.fetch(targetUserId);
       await linkUserZwiftId(targetUserId, targetUser.username, selectedValue);
       const content = `✅ Linked ZwiftID **${selectedValue}** to ${targetUser.username}.`;
       await ephemeralReplyWithPublish(interaction, content);
-      
+
       // Check verification status after linking ZwiftID
       const { checkVerificationAfterZwiftLink } = require("./memberHandler");
       await checkVerificationAfterZwiftLink(interaction.guild, targetUserId);
@@ -176,7 +176,7 @@ async function handleSelectMenus(interaction) {
 async function handleInteractions(interaction) {
   try {
     console.log(`🔍 [${HANDLER_ID}] Handling interaction: ${interaction.type} - ${interaction.isCommand() ? interaction.commandName : 'N/A'} (ID: ${interaction.id})`);
-    
+
     // Handle publish buttons
     if (interaction.isButton() && interaction.customId.startsWith("publish_")) {
       const uniqueId = interaction.customId.replace("publish_", "");
@@ -197,7 +197,7 @@ async function handleInteractions(interaction) {
         if (!member.roles.cache.has(VERIFIED_ROLE_ID)) {
           await interaction.editReply(
             "❌ Du skal være Verified Member for at tilmelde dig.\n\n" +
-              "Skriv dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn til mig, så linker jeg det og du kan få rollen."
+            "Skriv dit ZwiftID (kun tal) eller de første 3+ bogstaver i dit Zwift-navn til mig, så linker jeg det og du kan få rollen."
           );
           return;
         }
@@ -222,44 +222,44 @@ async function handleInteractions(interaction) {
         console.error("Error handling KMS toggle:", error);
         try {
           await interaction.editReply("❌ Kunne ikke opdatere din tilmelding. Tjek bot-rollerettigheder.");
-        } catch {}
+        } catch { }
       }
       return;
     }
 
     // Handle signup board buttons
     if (interaction.isButton() && interaction.customId.startsWith("signup_")) {
-        const { handleSignupButton } = require("../services/signupService");
-        await handleSignupButton(interaction);
-        return;
+      const { handleSignupButton } = require("../services/signupService");
+      await handleSignupButton(interaction);
+      return;
     }
 
     // Handle role toggle buttons
     if (interaction.isButton() && interaction.customId.startsWith("role_toggle_")) {
       const parts = interaction.customId.split("_");
-      
+
       if (parts.length === 4) {
         // New format: role_toggle_panelId_roleId
         const panelId = parts[2];
         const roleId = parts[3];
-        
+
         try {
           await interaction.deferReply({ ephemeral: true });
-          
+
           // Get panel configuration
           const panelConfig = await roleService.getPanelConfig(interaction.guild.id, panelId);
           if (!panelConfig) {
             await interaction.editReply("❌ Panel configuration not found.");
             return;
           }
-          
+
           // Check if user has access to this panel
           const accessCheck = await roleService.canUserAccessPanel(
-            interaction.guild, 
-            interaction.user.id, 
+            interaction.guild,
+            interaction.user.id,
             panelConfig
           );
-          
+
           if (!accessCheck.canAccess) {
             const missingRolesList = accessCheck.missingRoles.join(", ");
             await interaction.editReply(
@@ -267,12 +267,12 @@ async function handleInteractions(interaction) {
             );
             return;
           }
-          
+
           // Check if user already has this role
           const member = await interaction.guild.members.fetch(interaction.user.id);
           const hasRole = member.roles.cache.has(roleId);
           const role = await interaction.guild.roles.fetch(roleId);
-          
+
           if (!role) {
             await interaction.editReply("❌ Role not found.");
             return;
@@ -337,7 +337,7 @@ async function handleInteractions(interaction) {
             const row = new ActionRowBuilder().addComponents(joinButton, cancelButton);
             await interaction.editReply({ embeds: [embed], components: [row] });
           }
-          
+
         } catch (error) {
           console.error("Error handling panel role toggle:", error);
           await interaction.editReply(`❌ Error: ${error.message}`);
@@ -348,7 +348,7 @@ async function handleInteractions(interaction) {
         const roleId = parts[2];
         try {
           await interaction.deferReply({ ephemeral: true });
-          
+
           const result = await roleService.toggleUserRole(
             interaction.guild,
             interaction.user.id,
@@ -357,7 +357,7 @@ async function handleInteractions(interaction) {
 
           const emoji = result.action === "added" ? "✅" : "❌";
           const actionText = result.action === "added" ? "added" : "removed";
-          
+
           await interaction.editReply(`${emoji} Successfully ${actionText} the **${result.roleName}** role!`);
         } catch (error) {
           console.error("Error handling legacy role toggle:", error);
@@ -370,12 +370,12 @@ async function handleInteractions(interaction) {
     // Handle leave confirmation buttons
     if (interaction.isButton() && (interaction.customId.startsWith("confirm_leave_") || interaction.customId.startsWith("cancel_leave_"))) {
       const parts = interaction.customId.split("_");
-      
+
       if (parts.length === 4) {
         const action = parts[1]; // "leave"
         const panelId = parts[2];
         const roleId = parts[3];
-        
+
         try {
           await interaction.deferReply({ ephemeral: true });
 
@@ -399,7 +399,7 @@ async function handleInteractions(interaction) {
           } else {
             await interaction.editReply(`❌ Error: ${result.message || 'Could not leave'}`);
           }
-          
+
         } catch (error) {
           console.error("Error handling leave confirmation:", error);
           await interaction.editReply(`❌ Error: ${error.message}`);
@@ -411,12 +411,12 @@ async function handleInteractions(interaction) {
     // Handle join confirmation buttons
     if (interaction.isButton() && (interaction.customId.startsWith("confirm_join_") || interaction.customId.startsWith("cancel_join_"))) {
       const parts = interaction.customId.split("_");
-      
+
       if (parts.length === 4) {
         const action = parts[1]; // "join"
         const panelId = parts[2];
         const roleId = parts[3];
-        
+
         try {
           await interaction.deferReply({ ephemeral: true });
 
@@ -444,7 +444,7 @@ async function handleInteractions(interaction) {
           } else {
             await interaction.editReply(`❌ Error: ${result.message || 'Could not join'}`);
           }
-          
+
         } catch (error) {
           console.error("Error handling join confirmation:", error);
           await interaction.editReply(`❌ Error: ${error.message}`);
@@ -473,19 +473,19 @@ async function handleInteractions(interaction) {
 
     // Handle slash commands
     if (!interaction.isCommand()) return;
-    
+
     console.log(`🔄 [${HANDLER_ID}] Interaction state before response: replied=${interaction.replied}, deferred=${interaction.deferred}`);
-    
+
     // Add a small delay to see if this helps with timing
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Try immediate reply instead of defer to avoid timing issues
     if (!interaction.replied && !interaction.deferred) {
       console.log(`⏳ [${HANDLER_ID}] Attempting to reply to interaction ${interaction.id}`);
       try {
-        await interaction.reply({ 
-          content: "⏳ Processing command...", 
-          flags: MessageFlags.Ephemeral 
+        await interaction.reply({
+          content: "⏳ Processing command...",
+          flags: MessageFlags.Ephemeral
         });
         console.log(`✅ [${HANDLER_ID}] Successfully replied to interaction`);
       } catch (replyError) {
@@ -500,7 +500,7 @@ async function handleInteractions(interaction) {
       console.log(`⚠️ [${HANDLER_ID}] Interaction already acknowledged, skipping reply`);
       return; // Exit if already handled
     }
-    
+
     const commandName = interaction.commandName;
 
     const commandHandlers = {
@@ -559,19 +559,19 @@ async function handleInteractions(interaction) {
 
   } catch (error) {
     console.error(`❌ [${HANDLER_ID}] Unexpected Error:`, error);
-    
+
     // Don't try to respond to autocomplete interactions or expired interactions
     if (interaction.isAutocomplete() || error.code === 10062) {
       console.log(`⚠️ [${HANDLER_ID}] Skipping error response for autocomplete or expired interaction`);
       return;
     }
-    
+
     try {
       // Check current interaction state before trying to respond
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ 
-          content: "⚠️ An unexpected error occurred!", 
-          flags: MessageFlags.Ephemeral 
+        await interaction.reply({
+          content: "⚠️ An unexpected error occurred!",
+          flags: MessageFlags.Ephemeral
         });
       } else if (interaction.replied) {
         // Already replied, edit the reply
@@ -580,9 +580,9 @@ async function handleInteractions(interaction) {
         await interaction.editReply({ content: "⚠️ An unexpected error occurred!" });
       } else {
         // Fallback: try follow-up
-        await interaction.followUp({ 
-          content: "⚠️ An unexpected error occurred!", 
-          flags: MessageFlags.Ephemeral 
+        await interaction.followUp({
+          content: "⚠️ An unexpected error occurred!",
+          flags: MessageFlags.Ephemeral
         });
       }
     } catch (responseError) {

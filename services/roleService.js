@@ -12,14 +12,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       let data = doc.exists ? doc.data() : {};
-      
+
       // If this is a legacy setup, convert to new panel structure
       if (!data.panels) {
         data.panels = {};
       }
-      
+
       // Create default panel
       data.panels['default'] = {
         channelId: channelId,
@@ -32,15 +32,15 @@ class RoleService {
         createdAt: data.createdAt || new Date(),
         updatedAt: new Date()
       };
-      
+
       // Clean up old structure
       delete data.channelId;
       delete data.roles;
       delete data.panelMessageId;
-      
+
       data.createdAt = data.createdAt || new Date();
       data.updatedAt = new Date();
-      
+
       await docRef.set(data);
       return true;
     } catch (error) {
@@ -54,14 +54,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       const data = doc.exists ? doc.data() : { panels: {} };
-      
+
       // Initialize panels object if it doesn't exist
       if (!data.panels) {
         data.panels = {};
       }
-      
+
       // Create or update the specific panel
       data.panels[panelId] = {
         channelId: channelId,
@@ -75,12 +75,12 @@ class RoleService {
         createdAt: data.panels[panelId]?.createdAt || new Date(),
         updatedAt: new Date()
       };
-      
+
       data.createdAt = data.createdAt || new Date();
       data.updatedAt = new Date();
-      
+
       await docRef.set(data, { merge: true });
-      
+
       return true;
     } catch (error) {
       console.error("Error setting up role panel:", error);
@@ -98,14 +98,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found. Use /setup_panel first.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Check if role already exists in this panel
       if (panel.roles.some(role => role.roleId === roleId)) {
         throw new Error("This role is already in this panel.");
@@ -145,7 +145,7 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
@@ -153,9 +153,9 @@ class RoleService {
       const data = doc.data();
       const panel = data.panels[panelId];
       const originalLength = panel.roles.length;
-      
+
       panel.roles = panel.roles.filter(role => role.roleId !== roleId);
-      
+
       if (panel.roles.length === originalLength) {
         throw new Error("This role was not found in this panel.");
       }
@@ -191,7 +191,7 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         return null;
       }
@@ -208,7 +208,7 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels) {
         return {};
       }
@@ -290,7 +290,7 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         return false;
       }
@@ -322,7 +322,7 @@ class RoleService {
   async createRolePanelForPanel(roles, guildName, panelConfig, userHasAccess = true) {
     // Build the message content as regular text instead of embed
     let messageContent = `# 🔑 ${panelConfig.name}\n\n`;
-    
+
     if (panelConfig.description) {
       messageContent += `${panelConfig.description}\n`;
     } else {
@@ -354,14 +354,14 @@ class RoleService {
 
     // Fetch all team captains to ensure consistent username display
     const teamCaptains = new Map();
-    
+
     // Group all captains to fetch them efficiently
     for (const role of roles) {
       if (role.teamCaptainId && !teamCaptains.has(role.teamCaptainId)) {
         try {
           // Fetch the member if not already in cache. Using force: false to leverage pre-fetch.
           const member = await panelConfig.guild.members.fetch(role.teamCaptainId, { force: false });
-          
+
           if (member && member.user) {
             // Use both mention formats to maximize compatibility
             const mention = `<@!${role.teamCaptainId}>`;
@@ -372,7 +372,7 @@ class RoleService {
           }
         } catch (error) {
           console.error(`❌ Could not fetch team captain ${role.teamCaptainId}:`, error.message);
-          
+
           // Try to get from cache as last resort
           const cachedMember = panelConfig.guild.members.cache.get(role.teamCaptainId);
           if (cachedMember) {
@@ -389,42 +389,48 @@ class RoleService {
 
     // Add available roles section
     messageContent += `## Available Roles\n`;
-    
+
     const roleList = roles.map(role => {
       const description = role.description ? ` - ${role.description}` : "";
       const approvalIcon = role.requiresApproval ? " 🔐" : "";
       const teamCaptain = role.teamCaptainId ? ` ${teamCaptains.get(role.teamCaptainId)}` : "";
-      const prerequisites = role.requiredRoles && role.requiredRoles.length > 0 
-        ? ` (requires: ${role.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ")})` 
+      const prerequisites = role.requiredRoles && role.requiredRoles.length > 0
+        ? ` (requires: ${role.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ")})`
         : "";
       return `${role.emoji || ""} **${role.roleName}**${description}${approvalIcon}${teamCaptain}${prerequisites}`;
     });
 
     // Add all roles to message content (no character limits like embed fields)
     messageContent += roleList.join("\n") + "\n\n";
-    
+
     // Add approval info if any roles require approval
     const approvalRoles = roles.filter(role => role.requiresApproval);
     if (approvalRoles.length > 0) {
       messageContent += `🔐 = **Team Approval Required**\n\n`;
     }
-    
+
     // Add required roles info if any
     if (panelConfig.requiredRoles && panelConfig.requiredRoles.length > 0) {
       const requiredRolesList = panelConfig.requiredRoles.map(roleId => `<@&${roleId}>`).join(", ");
       messageContent += `🔒 **Required Roles**: You need: ${requiredRolesList}\n\n`;
     }
 
-    // Add button color explanation
-    messageContent += `---\n`;
-    messageContent += `🔴 **Rød** = Løbsserie\n`;
-    messageContent += `🔵 **Blå** = DZR hold\n`;
-    messageContent += `**ZRL** = Zwift Racing League\n`;
-    messageContent += `**DRS** = DIRT Racing Series\n\n`;
+    // Add custom footer text or fallback to default
+    if (panelConfig.footerText) {
+      // Use custom footer text if defined in the panel
+      messageContent += `---\n${panelConfig.footerText.replace(/\\\\n/g, '\\n')}\n\n`;
+    } else {
+      // Add button color explanation
+      messageContent += `---\n`;
+      messageContent += `🔴 **Rød** = Løbsserie\n`;
+      messageContent += `🔵 **Blå** = DZR hold\n`;
+      messageContent += `**ZRL** = Zwift Racing League\n`;
+      messageContent += `**DRS** = DIRT Racing Series\n\n`;
 
-    // Add DZR website link
-    messageContent += `🌐 **Mere information**\n`;
-    messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl\n`;
+      // Add DZR website link
+      messageContent += `🌐 **Mere information**\n`;
+      messageContent += `Find fuld oversigt over DZR hold og søg hold på https://www.dzrracingseries.com/members-zone/zrl\n`;
+    }
 
     // Create buttons (max 5 per row, max 5 rows = 25 buttons)
     const components = [];
@@ -484,22 +490,22 @@ class RoleService {
     // If we're getting close, switch to an embed which allows 4096 in description
     if (messageContent.length > 1900) {
       console.log(`⚠️ Panel content length (${messageContent.length}) is near limits. Switching to Embed format.`);
-      
+
       const embed = new EmbedBuilder()
         .setTitle(`🔑 ${panelConfig.name}`)
         .setColor(0x5865F2);
-      
+
       // Remove the main header from the content as it becomes the embed title
       let embedDescription = messageContent.replace(`# 🔑 ${panelConfig.name}\n\n`, "");
-      
+
       // Check for Embed description limit (4096)
       if (embedDescription.length > 4096) {
         console.warn(`🚨 Panel still too large for embed description (${embedDescription.length}). Truncating.`);
         embedDescription = embedDescription.substring(0, 4090) + "...";
       }
-      
+
       embed.setDescription(embedDescription);
-      
+
       return { content: "", embeds: [embed], components };
     }
 
@@ -511,14 +517,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Find the role and update it
       const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
       if (roleIndex === -1) {
@@ -568,7 +574,7 @@ class RoleService {
               if (roleConfig && roleConfig.teamCaptainId) {
                 try {
                   const captain = await guild.members.fetch(roleConfig.teamCaptainId);
-                  
+
                   const leaveEmbed = new EmbedBuilder()
                     .setTitle("🚪 Team Member Left")
                     .setDescription("A rider has left your team")
@@ -636,10 +642,10 @@ class RoleService {
                 requestedAt: new Date()
               });
 
-              return { 
-                action: "approval_requested", 
+              return {
+                action: "approval_requested",
                 roleName: role.name,
-                message: roleConfig.teamCaptainId 
+                message: roleConfig.teamCaptainId
                   ? "Your request has been submitted for team captain approval. You will receive the role once your team captain approves it."
                   : "Your request has been submitted for admin approval. You will receive the role once an admin approves it."
               };
@@ -677,14 +683,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Find the role and update it
       const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
       if (roleIndex === -1) {
@@ -708,7 +714,7 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
@@ -731,14 +737,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Find the role and update it
       const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
       if (roleIndex === -1) {
@@ -762,14 +768,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Find the role and update it
       const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
       if (roleIndex === -1) {
@@ -799,14 +805,14 @@ class RoleService {
     try {
       const docRef = db.collection(this.collection).doc(guildId);
       const doc = await docRef.get();
-      
+
       if (!doc.exists || !doc.data().panels || !doc.data().panels[panelId]) {
         throw new Error(`Panel "${panelId}" not found.`);
       }
 
       const data = doc.data();
       const panel = data.panels[panelId];
-      
+
       // Find the role and update it
       const roleIndex = panel.roles.findIndex(role => role.roleId === roleId);
       if (roleIndex === -1) {
